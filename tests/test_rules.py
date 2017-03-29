@@ -26,7 +26,7 @@ class TestRules(TestCase):
 
         self.assertEqual(None, type_int.validate(1))
         self.assertEqual(None, type_int.validate(u'1'))
-        self.assertEqual(None, type_int.validate('1'))
+        self.assertEqual(['Invalid type for value 1'], type_int.validate('1'))
         self.assertEqual(['Invalid type for value 1test'], type_int.validate('1test'))
 
     def test_enum(self):
@@ -66,13 +66,14 @@ class TestRules(TestCase):
         )
 
     def test_composite(self):
-        rule = CompositeRule(Required(), Pattern(r'^[a-zA-Z0-9-_.]{5,20}$'))
+        pattern = r'^\w+$'
+        rule = CompositeRule(Required(), MinLength(4), Pattern(pattern))
+        self.assertEqual([], rule.validate('test'))
 
-        self.assertEqual([], rule.validate('test_5'))
         self.assertEqual(
             [
-                'Value is required',
-                'Value None does not match pattern ^[a-zA-Z0-9-_.]{5,20}$'
+                'Invalid length for value m!n. Min length = 4',
+                'Value m!n does not match pattern %s' % pattern,
             ],
-            rule.validate(None)
+            rule.validate('m!n')
         )

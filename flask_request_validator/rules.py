@@ -24,9 +24,10 @@ class CompositeRule(AbstractRule):
     def validate(self, value):
         errors = []
         for rule in self.rules:
-            error = rule.validate(value)
-            if error:
-                errors.extend(error)
+            if isinstance(rule, Required) or value:
+                error = rule.validate(value)
+                if error:
+                    errors.extend(error)
 
         return errors
 
@@ -47,7 +48,7 @@ class Pattern(AbstractRule):
         self.pattern = re.compile(pattern)
 
     def validate(self, value):
-        if not value or not self.pattern.search(value):
+        if not self.pattern.search(value):
             return ['Value %s does not match pattern %s' % (value, self.pattern.pattern)]
 
 
@@ -70,7 +71,7 @@ class Type(AbstractRule):
         self.value_type = value_type
 
     def validate(self, value):
-        if value:
+        if isinstance(value, unicode):
             try:
                 value = self.value_type(value)
             except ValueError:
