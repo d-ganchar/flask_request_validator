@@ -1,7 +1,7 @@
 from functools import wraps
 
 from .exceptions import InvalidRequest, UndefinedParamType
-from .rules import Type
+from .rules import Type, Required
 from flask import request
 
 
@@ -92,10 +92,11 @@ def __get_errors(params):
             value = request.view_args.get(param_name)
 
         for rule in param.rules:
-            rule_errors = rule.validate(value)
-            if rule_errors:
-                errors[param_type].setdefault(param_name, [])
+            if isinstance(rule, Required) or value:
+                rule_errors = rule.validate(value)
+                if rule_errors:
+                    errors[param_type].setdefault(param_name, [])
 
-                errors[param_type][param_name].extend(rule_errors)
+                    errors[param_type][param_name].extend(rule_errors)
 
     return errors
