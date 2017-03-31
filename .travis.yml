@@ -6,5 +6,5 @@ python:
   - "3.5"
   - "3.6"
 install: "pip install -r requirements.txt"
-script: nosetests  --with-coverage --cover-package=tests
+script: nosetests  --with-coverage --cover-package=flask_request_validator
 after_success: coveralls
