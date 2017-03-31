@@ -1,6 +1,7 @@
 ## Flask request validator
 
 [![Build Status](https://api.travis-ci.org/d-ganchar/flask_request_validator.svg?branch=master)](https://travis-ci.org/d-ganchar/flask_request_validator)
+[![Coverage Status](https://coveralls.io/github/d-ganchar/flask_request_validator/badge.svg?branch=master&service=github)](https://coveralls.io/github/d-ganchar/flask_request_validator?branch=master)
 
 
 Extension provide posibility to validate of Flask request using @validate_params decorator.
