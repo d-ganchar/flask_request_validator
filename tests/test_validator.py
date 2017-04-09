@@ -2,7 +2,7 @@ import json
 from unittest import TestCase
 
 import flask
-from flask.ext.request_validator.exceptions import InvalidRequest
+from flask_request_validator.exceptions import InvalidRequest
 
 from flask_request_validator import CompositeRule
 from flask_request_validator import (
