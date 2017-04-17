@@ -71,13 +71,14 @@ class Type(AbstractRule):
         self.value_type = value_type
 
     def validate(self, value):
-        if isinstance(value, unicode):
-            try:
-                value = self.value_type(value)
-            except ValueError:
-                return ['Invalid type for value %s' % value]
+        try:
+            if self.value_type == bool:
+                value = value.lower()
+                if value not in ('true', '1', 'false', '0'):
+                    return ['Invalid type for value %s' % value]
 
-        if not isinstance(value, self.value_type):
+            value = self.value_type(value)
+        except ValueError:
             return ['Invalid type for value %s' % value]
 
 
