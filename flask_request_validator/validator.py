@@ -80,16 +80,17 @@ def __get_errors(params):
         if param_type not in (POST, GET):
             raise UndefinedParamType('Undefined param type %s' % param_type)
 
+        value_type = None
+        for rule in param.rules:
+            if isinstance(rule, Type):
+                value_type = rule.value_type
+
+                break
+
         if param_type == POST:
-            value = request.form.get(param_name)
-
-            for rule in param.rules:
-                if isinstance(rule, Type):
-                    value = request.form.get(param_name, rule.value_type)
-
-                    break
+            value = request.form.get(param_name, value_type)
         else:
-            value = request.view_args.get(param_name)
+            value = request.view_args.get(param_name, value_type)
 
         for rule in param.rules:
             if isinstance(rule, Required) or value:
