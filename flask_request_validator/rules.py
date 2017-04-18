@@ -73,7 +73,7 @@ class Type(AbstractRule):
     def validate(self, value):
         try:
             if self.value_type == bool:
-                value = value.encode('utf8').lower()
+                value = value.lower()
                 if value not in ('true', '1', 'false', '0'):
                     return ['Invalid type for value %s' % value]
 
