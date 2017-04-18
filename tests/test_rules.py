@@ -19,15 +19,27 @@ class TestRules(TestCase):
 
         self.assertEqual(None, type_rule.validate(u'test'))
         self.assertEqual(None, type_rule.validate('test'))
-        self.assertEqual(['Invalid type for value None'], type_rule.validate(None))
 
     def test_type_int(self):
         type_int = Type(int)
 
         self.assertEqual(None, type_int.validate(1))
         self.assertEqual(None, type_int.validate(u'1'))
-        self.assertEqual(['Invalid type for value 1'], type_int.validate('1'))
+        self.assertEqual(None, type_int.validate('1'))
         self.assertEqual(['Invalid type for value 1test'], type_int.validate('1test'))
+
+    def test_type_bool(self):
+        type_bool = Type(bool)
+
+        self.assertEqual(None, type_bool.validate('False'))
+        self.assertEqual(None, type_bool.validate('false'))
+        self.assertEqual(None, type_bool.validate('0'))
+        self.assertEqual(None, type_bool.validate('True'))
+        self.assertEqual(None, type_bool.validate('true'))
+        self.assertEqual(None, type_bool.validate('1'))
+
+        self.assertEqual(['Invalid type for value 2'], type_bool.validate('2'))
+        self.assertEqual(['Invalid type for value test'], type_bool.validate('test'))
 
     def test_enum(self):
         type_enum = Enum('test1', 'test2')
