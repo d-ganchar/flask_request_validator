@@ -31,6 +31,17 @@ class CompositeRule(AbstractRule):
 
         return errors
 
+    def value_to_type(self, value):
+        """
+        :param mixed value:
+        :return: mixed
+        """
+        for rule in self.rules:
+            if isinstance(rule, Type):
+                return rule.value_to_type(value)
+
+        return value
+
 
 class Required(AbstractRule):
 
@@ -70,15 +81,28 @@ class Type(AbstractRule):
     def __init__(self, value_type):
         self.value_type = value_type
 
-    def validate(self, value):
+    def value_to_type(self, value):
+        """
+        :param mixed value:
+        :return: mixed
+        """
         try:
             if self.value_type == bool:
                 value = value.lower()
-                if value not in ('true', '1', 'false', '0'):
-                    return ['Invalid type for value %s' % value]
+
+                if value in ('true', '1'):
+                    value = True
+                elif value in ('false', '0'):
+                    value = False
 
             value = self.value_type(value)
-        except ValueError:
+        except (ValueError, TypeError):
+            pass
+
+        return value
+
+    def validate(self, value):
+        if type(value) is not self.value_type:
             return ['Invalid type for value %s' % value]
 
 

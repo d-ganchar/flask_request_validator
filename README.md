@@ -18,6 +18,7 @@ $ pip install flask_request_validator
 from flask_request_validator import (
     Enum,
     GET,
+    VIEW,
     POST,
     Param,
     Type,
@@ -28,8 +29,9 @@ from flask_request_validator import (
 
 @app.route('/<string:key>/<string:uuid>', methods=['POST'])
 @validate_params(
-    Param('key', GET, Type(str), Enum('key1', 'key2')),
-    Param('uuid', GET, Type(str), Pattern(r'^[a-z-_.]{8,10}$')),
+    Param('key', VIEW, Type(str), Enum('key1', 'key2')),
+    Param('uuid', VIEW, Type(str), Pattern(r'^[a-z-_.]{8,10}$')),
+    Param('id', GET, Type(int)),
     Param('sys', POST, Type(str), Required(), Pattern(r'^[a-z.]{3,6}$')),
     Param('type', POST, Type(str), Enum('type1', 'type2')),
 )
