@@ -17,26 +17,26 @@ class TestRules(TestCase):
     def test_type_str(self):
         type_rule = Type(str)
 
-        self.assertEqual(None, type_rule.validate(u'test'))
-        self.assertEqual(None, type_rule.validate('test'))
+        for value in ('test', u'test',):
+            value = type_rule.value_to_type(value)
+            self.assertEqual(None, type_rule.validate(value))
 
     def test_type_int(self):
         type_int = Type(int)
 
-        self.assertEqual(None, type_int.validate(1))
-        self.assertEqual(None, type_int.validate(u'1'))
-        self.assertEqual(None, type_int.validate('1'))
-        self.assertEqual(['Invalid type for value 1test'], type_int.validate('1test'))
+        for value in (1, '1', u'1',):
+            value = type_int.value_to_type(value)
+            self.assertEqual(None, type_int.validate(value))
+
+        value = type_int.value_to_type('1test')
+        self.assertEqual(['Invalid type for value 1test'], type_int.validate(value))
 
     def test_type_bool(self):
         type_bool = Type(bool)
 
-        self.assertEqual(None, type_bool.validate('False'))
-        self.assertEqual(None, type_bool.validate('false'))
-        self.assertEqual(None, type_bool.validate('0'))
-        self.assertEqual(None, type_bool.validate('True'))
-        self.assertEqual(None, type_bool.validate('true'))
-        self.assertEqual(None, type_bool.validate('1'))
+        for value in ('False', 'false', '0', 'True', 'true', '1'):
+            value = type_bool.value_to_type(value)
+            self.assertEqual(None, type_bool.validate(value))
 
         self.assertEqual(['Invalid type for value 2'], type_bool.validate('2'))
         self.assertEqual(['Invalid type for value test'], type_bool.validate('test'))
