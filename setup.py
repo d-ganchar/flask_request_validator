@@ -10,7 +10,7 @@ with open(path.join(current_path, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='flask_request_validator',
-    version='1.0.2',
+    version='1.0.3',
     description='Flask request data validation',
     long_description=long_description,
     url='https://github.com/d-ganchar/flask-request-validator',
