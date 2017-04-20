@@ -2,6 +2,7 @@ import json
 from unittest import TestCase
 
 import flask
+from flask import request
 
 from flask_request_validator import Type
 from flask_request_validator.exceptions import InvalidRequest
@@ -16,11 +17,12 @@ from flask_request_validator import (
     Required,
     validate_params
 )
+from flask_request_validator.request import FlaskRequest
 from flask_request_validator.validator import VIEW, get_request_value
 
 app = flask.Flask(__name__)
 app.testing = True
-
+app.request_class = FlaskRequest
 
 type_composite = CompositeRule(Required(), Type(str), Enum('type1', 'type2'))
 
@@ -30,8 +32,10 @@ type_composite = CompositeRule(Required(), Type(str), Enum('type1', 'type2'))
     Param('key', VIEW, Type(str), Enum('key1', 'key2')),
     Param('uuid', VIEW, Type(str), Pattern(r'^[a-z-_.]{8,10}$')),
     Param('id', GET, Type(int)),
+    Param('sure', GET, Type(bool)),
     Param('sys', POST, Type(str), Required(), Pattern(r'^[a-z.]{3,6}$')),
     Param('type', POST, type_composite),
+    Param('price', POST, Type(float)),
 )
 def route(key, uuid):
     return json.dumps({'key': key, 'uuid': uuid})
@@ -75,7 +79,24 @@ class TestValidator(TestCase):
 
     def test_valid_route(self):
         with app.test_client() as client:
-            client.post('/main/key1/test_test', data=dict(sys='key.a', type='type1'))
+            sys_value = 'key.a'
+            type_value = 'type1'
+            price_value = 2.99
+            client.post(
+                '/main/key1/test_test?id=1&sure=True',
+                data=dict(
+                    sys=sys_value,
+                    type=type_value,
+                    price=price_value
+                )
+            )
+
+            self.assertEqual(1, request.get_valid_param(GET, 'id'))
+            self.assertTrue(request.get_valid_param(GET, 'sure'))
+            self.assertEqual('key1', request.get_valid_param(VIEW, 'key'))
+            self.assertEqual(type_value, request.get_valid_param(POST, 'type'))
+            self.assertEqual(sys_value, request.get_valid_param(POST, 'sys'))
+            self.assertEqual(price_value, request.get_valid_param(POST, 'price'))
 
     def test_invalid_get(self):
         with app.test_client() as client:

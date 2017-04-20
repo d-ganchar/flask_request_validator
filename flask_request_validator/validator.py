@@ -1,4 +1,7 @@
+from copy import deepcopy
 from functools import wraps
+
+from werkzeug.datastructures import ImmutableDict
 
 from .exceptions import InvalidRequest, UndefinedParamType
 from .rules import Type, Required, CompositeRule
@@ -91,6 +94,7 @@ def __get_errors(params):
         VIEW: {},
         POST: {},
     }
+    valid_values = deepcopy(errors)
 
     for param in params:
         param_name = param.name
@@ -109,6 +113,10 @@ def __get_errors(params):
                     errors[param_type].setdefault(param_name, [])
 
                     errors[param_type][param_name].extend(rule_errors)
+                else:
+                    valid_values[param_type][param_name] = value
+
+    request.valid_params = ImmutableDict(valid_values)
 
     return errors
 
