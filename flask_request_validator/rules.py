@@ -1,5 +1,9 @@
 import re
 
+from flask_request_validator.exceptions import NotAllowedType
+
+ALLOWED_TYPES = (str, bool, int, float, dict, list)
+
 
 class AbstractRule(object):
 
@@ -79,6 +83,16 @@ class Enum(AbstractRule):
 class Type(AbstractRule):
 
     def __init__(self, value_type):
+        """
+        :param type value_type: 
+        """
+
+        if value_type not in ALLOWED_TYPES:
+            raise NotAllowedType(
+                'Type %s is not allowed. Supported types: %s' %
+                (value_type, ALLOWED_TYPES)
+            )
+
         self.value_type = value_type
 
     def value_to_type(self, value):
@@ -94,6 +108,13 @@ class Type(AbstractRule):
                     value = True
                 elif value in ('false', '0'):
                     value = False
+            elif self.value_type == list:
+                value = [item.strip() for item in value.split(',')]
+            elif self.value_type == dict:
+                value = {
+                    item.split(':')[0].strip(): item.partition(':')[-1].strip()
+                    for item in value.split(',')
+                }
 
             value = self.value_type(value)
         except (ValueError, TypeError):
