@@ -3,7 +3,13 @@ import json
 
 class UndefinedParamType(Exception):
     """
-    Not allowed type of param
+    Not allowed type of param(GET, POST )
+    """
+
+
+class NotAllowedType(Exception):
+    """
+    Not allowed type. See: rules.ALLOWED_TYPES
     """
 
 

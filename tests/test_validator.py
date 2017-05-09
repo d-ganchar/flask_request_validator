@@ -6,7 +6,6 @@ from flask import request
 
 from flask_request_validator import Type
 from flask_request_validator.exceptions import InvalidRequest
-
 from flask_request_validator import CompositeRule
 from flask_request_validator import (
     Enum,
@@ -36,6 +35,8 @@ type_composite = CompositeRule(Required(), Type(str), Enum('type1', 'type2'))
     Param('sys', POST, Type(str), Required(), Pattern(r'^[a-z.]{3,6}$')),
     Param('type', POST, type_composite),
     Param('price', POST, Type(float)),
+    Param('cities', POST, Type(list)),
+    Param('dql', POST, Type(dict)),
 )
 def route(key, uuid):
     return json.dumps({'key': key, 'uuid': uuid})
@@ -87,7 +88,9 @@ class TestValidator(TestCase):
                 data=dict(
                     sys=sys_value,
                     type=type_value,
-                    price=price_value
+                    price=price_value,
+                    cities='Minsk, Praha, Berlin',
+                    dql='orderBy: DESC, select: name'
                 )
             )
 
@@ -97,6 +100,14 @@ class TestValidator(TestCase):
             self.assertEqual(type_value, request.get_valid_param(POST, 'type'))
             self.assertEqual(sys_value, request.get_valid_param(POST, 'sys'))
             self.assertEqual(price_value, request.get_valid_param(POST, 'price'))
+            self.assertEqual(
+                ['Minsk', 'Praha', 'Berlin'],
+                request.get_valid_param(POST, 'cities')
+            )
+            self.assertEqual(
+                {'orderBy': 'DESC', 'select': 'name'},
+                request.get_valid_param(POST, 'dql')
+            )
 
     def test_invalid_get(self):
         with app.test_client() as client:
