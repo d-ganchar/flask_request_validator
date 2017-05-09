@@ -3,7 +3,14 @@ from unittest import TestCase
 from flask_request_validator import Enum
 from flask_request_validator import Required
 from flask_request_validator import Type
-from flask_request_validator.rules import MaxLength, MinLength, Pattern, CompositeRule
+from flask_request_validator.exceptions import NotAllowedType
+from flask_request_validator.rules import (
+    MaxLength,
+    MinLength,
+    Pattern,
+    CompositeRule,
+    ALLOWED_TYPES
+)
 
 
 class TestRules(TestCase):
@@ -40,6 +47,31 @@ class TestRules(TestCase):
 
         self.assertEqual(['Invalid type for value 2'], type_bool.validate('2'))
         self.assertEqual(['Invalid type for value test'], type_bool.validate('test'))
+
+    def test_type_list(self):
+        type_list = Type(list)
+        with_spaces = type_list.value_to_type('key1, key2, key3')
+        without = type_list.value_to_type('key1,key2,key3')
+        expected = ['key1', 'key2', 'key3']
+
+        self.assertListEqual(with_spaces, expected)
+        self.assertListEqual(without, expected)
+
+    def test_type_dict(self):
+        type_dict = Type(dict)
+        with_spaces = type_dict.value_to_type('orderBy: DESC, select: name')
+        without = type_dict.value_to_type('orderBy:DESC,select:name')
+        expected = {'orderBy': 'DESC', 'select': 'name'}
+
+        self.assertDictEqual(with_spaces, expected)
+        self.assertDictEqual(without, expected)
+
+    def test_supported_types(self):
+        for i in ALLOWED_TYPES:
+            Type(i)
+
+        with self.assertRaises(NotAllowedType):
+            Type(set)
 
     def test_enum(self):
         type_enum = Enum('test1', 'test2')
