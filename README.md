@@ -15,6 +15,8 @@ $ pip install flask_request_validator
 ### How to use:
 
 ```
+from flask import request
+from flask_request_validator.request import FlaskRequest
 from flask_request_validator import (
     Enum,
     GET,
@@ -27,16 +29,47 @@ from flask_request_validator import (
     validate_params
 )
 
+
+app = flask.Flask(__name__)
+app.request_class = FlaskRequest
+
+
 @app.route('/<string:key>/<string:uuid>', methods=['POST'])
 @validate_params(
     Param('key', VIEW, Type(str), Enum('key1', 'key2')),
     Param('uuid', VIEW, Type(str), Pattern(r'^[a-z-_.]{8,10}$')),
     Param('id', GET, Type(int)),
-    Param('sys', POST, Type(str), Required(), Pattern(r'^[a-z.]{3,6}$')),
-    Param('type', POST, Type(str), Enum('type1', 'type2')),
+    Param('price', POST, Type(float), Required()),
 )
 def route(key, uuid):
+    # example route: host/key1/qwertyuio?id=1
+    print request.get_valid_param(POST, 'price')) # 2.01 (float)
+    print request.get_valid_param(GET, 'id')) # 1 (int)
 ```
+
+What are the VIEW, GET, POST params?
+    VIEW param is an argument in the view function. See the example above.
+    `key` and `uuid` are arguments for the route. They are stored in `request.view_args`.
+    GET are params in the request string example: /my_route?f_name=test&l_name=tests2
+    POST are params in `request.form`
+
+Which types are supported?
+    `str, bool, int, float, dict, list`
+
+How to use `list` and `dict` params?
+
+```
+@app.route('/', methods=['POST'])
+@validate_params(
+    Param('id', POST, Type(list)), # should be sent as string `1,2,3`
+    Param('query', POST, Type(dict)), # should be sent as string `{key1:val1, key2,val2}`
+)
+def route():
+    print request.get_valid_param(POST, 'id')) # [1, 2, 3] (list)
+    print request.get_valid_param(POST, 'query')) # {'key1': 'val1', 'key2': 'val2'} (dict)
+
+```
+
 
 You can combine rules for frequent using `CompositeRule`:
 
@@ -62,7 +95,7 @@ def route_one():
 def route_two():
 ```
 
-Also you can create your custom rule. Here a small example:
+Also you can create your custom rule. Here is a small example:
 
 ```
 from flask_request_validator.rules import AbstractRule
