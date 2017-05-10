@@ -62,7 +62,7 @@ How to use `list` and `dict` params?
 @app.route('/', methods=['POST'])
 @validate_params(
     Param('id', POST, Type(list)), # should be sent as string `1,2,3`
-    Param('query', POST, Type(dict)), # should be sent as string `{key1:val1, key2,val2}`
+    Param('query', POST, Type(dict)), # should be sent as string `key1:val1, key2,val2`
 )
 def route():
     print request.get_valid_param(POST, 'id')) # [1, 2, 3] (list)
