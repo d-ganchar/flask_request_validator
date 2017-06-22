@@ -1,7 +1,5 @@
 import re
 
-from flask_request_validator.exceptions import NotAllowedType
-
 ALLOWED_TYPES = (str, bool, int, float, dict, list)
 
 
@@ -17,41 +15,14 @@ class AbstractRule(object):
         raise NotImplementedError()
 
 
-class CompositeRule(AbstractRule):
+class CompositeRule(object):
 
     def __init__(self, *rules):
-        """
-        :param tuple rules: (Rule(), Rule())
-        """
         self.rules = rules
 
-    def validate(self, value):
-        errors = []
+    def __iter__(self):
         for rule in self.rules:
-            if isinstance(rule, Required) or value:
-                error = rule.validate(value)
-                if error:
-                    errors.extend(error)
-
-        return errors
-
-    def value_to_type(self, value):
-        """
-        :param mixed value:
-        :return: mixed
-        """
-        for rule in self.rules:
-            if isinstance(rule, Type):
-                return rule.value_to_type(value)
-
-        return value
-
-
-class Required(AbstractRule):
-
-    def validate(self, value):
-        if not value:
-            return ['Value is required']
+            yield rule
 
 
 class Pattern(AbstractRule):
@@ -63,68 +34,24 @@ class Pattern(AbstractRule):
         self.pattern = re.compile(pattern)
 
     def validate(self, value):
+        errors = []
         if not self.pattern.search(value):
-            return ['Value %s does not match pattern %s' % (value, self.pattern.pattern)]
+            errors.append('Value "%s" does not match pattern %s' %
+                          (value, self.pattern.pattern))
+        return errors
 
 
 class Enum(AbstractRule):
 
     def __init__(self, *allowed_values):
-        """
-        :param tuple allowed_values:
-        """
         self.allowed_values = allowed_values
 
     def validate(self, value):
+        errors = []
         if value not in self.allowed_values:
-            return ['Incorrect value %s. Allowed values: %s' % (value, self.allowed_values)]
-
-
-class Type(AbstractRule):
-
-    def __init__(self, value_type):
-        """
-        :param type value_type: 
-        """
-
-        if value_type not in ALLOWED_TYPES:
-            raise NotAllowedType(
-                'Type %s is not allowed. Supported types: %s' %
-                (value_type, ALLOWED_TYPES)
-            )
-
-        self.value_type = value_type
-
-    def value_to_type(self, value):
-        """
-        :param mixed value:
-        :return: mixed
-        """
-        try:
-            if self.value_type == bool:
-                value = value.lower()
-
-                if value in ('true', '1'):
-                    value = True
-                elif value in ('false', '0'):
-                    value = False
-            elif self.value_type == list:
-                value = [item.strip() for item in value.split(',')]
-            elif self.value_type == dict:
-                value = {
-                    item.split(':')[0].strip(): item.partition(':')[-1].strip()
-                    for item in value.split(',')
-                }
-
-            value = self.value_type(value)
-        except (ValueError, TypeError):
-            pass
-
-        return value
-
-    def validate(self, value):
-        if type(value) is not self.value_type:
-            return ['Invalid type for value %s' % value]
+            errors.append('Incorrect value "%s". Allowed values: %s' %
+                          (value, self.allowed_values))
+        return errors
 
 
 class MaxLength(AbstractRule):
@@ -137,8 +64,11 @@ class MaxLength(AbstractRule):
         self.length = length
 
     def validate(self, value):
+        errors = []
         if len(value) > self.length:
-            return ['Invalid length for value %s. Max length = %s' % (value, self.length)]
+            errors.append('Invalid length for value "%s". Max length = %s' %
+                          (value, self.length))
+        return errors
 
 
 class MinLength(AbstractRule):
@@ -151,5 +81,8 @@ class MinLength(AbstractRule):
         self.length = length
 
     def validate(self, value):
+        errors = []
         if len(value) < self.length:
-            return ['Invalid length for value %s. Min length = %s' % (value, self.length)]
+            errors.append('Invalid length for value "%s". Min length = %s'
+                          % (value, self.length))
+        return errors
