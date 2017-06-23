@@ -4,7 +4,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/d-ganchar/flask_request_validator/badge.svg?branch=master)](https://coveralls.io/github/d-ganchar/flask_request_validator?branch=master)
 
 
-Extension provide possibility to validate of Flask request using `@validate_params` decorator.
+Package provide possibility to validate of Flask request and convert parameters to specific type.
 
 ### How to install:
 
@@ -14,100 +14,126 @@ $ pip install flask_request_validator
 
 ### How to use:
 
+**There are 4 types of request parameters**:
+
+`GET` - parameter stored in flask.request.args
+
+`FORM` - parameter stored in flask.request.form
+
+`JSON` - parameter stored in flask.request.get_json()
+
+`PATH` - parameter stored in flask.request.view_args. In this case is part of route
+
+
+**Here a list of possible rules for validation**:
+
+`Pattern(r'^[a-z-_.]{8,10}$')` - value checks at regexp. Works only for `str` values.
+
+`MaxLength(6)` - value checks at max length. Works for `str` and `list` values.
+
+`MixLength(6)` - value checks at min length. Works for `str` and `list` values.
+
+`Enum('value1', 'value2')` - describes allowed values
+
+`AbstractRule` - provide possibility to write custom rule
+
+**Supported types for values**:
+
+`str, bool, int, float, dict, list`
+
+`bool` should be sent from client as: `1`, `0`, or `true` / `false` in any register
+
+`list` should be sent from client as `value1,value2,value3`. 
+
+`dict` should be sent from client as `key1:val1,key2:val2`. 
+
+Here an example of route with validator:
+
+
 ```
-from flask import request
-from flask_request_validator.request import FlaskRequest
 from flask_request_validator import (
-    Enum,
-    GET,
-    VIEW,
-    POST,
+    PATH,
+    FORM,
     Param,
-    Type,
     Pattern,
-    Required,
     validate_params
 )
 
 
-app = flask.Flask(__name__)
-app.request_class = FlaskRequest
-
-
-@app.route('/<string:key>/<string:uuid>', methods=['POST'])
+@app.route('/<string:uuid>', methods=['POST'])
 @validate_params(
-    Param('key', VIEW, Type(str), Enum('key1', 'key2')),
-    Param('uuid', VIEW, Type(str), Pattern(r'^[a-z-_.]{8,10}$')),
-    Param('id', GET, Type(int)),
-    Param('price', POST, Type(float), Required()),
+    Param('uuid', PATH, str, rules=[Pattern(r'^[a-z-_.]{8,10}$')]),
+    Param('price', FORM, float),
 )
-def route(key, uuid):
-    # example route: host/key1/qwertyuio?id=1
-    print request.get_valid_param(POST, 'price')) # 2.01 (float)
-    print request.get_valid_param(GET, 'id')) # 1 (int)
+def route(uuid, price):
+    print uuid # str
+    print price # float
 ```
 
-What are the VIEW, GET, POST params?
-    VIEW param is an argument in the view function. See the example above.
-    `key` and `uuid` are arguments for the route. They are stored in `request.view_args`.
-    GET are params in the request string example: /my_route?f_name=test&l_name=tests2
-    POST are params in `request.form`
-
-Which types are supported?
-    `str, bool, int, float, dict, list`
-
-How to use `list` and `dict` params?
+Param description:
 
 ```
-@app.route('/', methods=['POST'])
+Param(
+    param_name_in_request, # str
+    request_param_type, # where stored param(GET, FORM, JSON, PATH)
+    type_of_value, # str, bool, int, float, dict, list - which type we want to have
+    required_or_no, bool - True by default
+    default_value, None by default. You can use lambda for this arg - default=lambda: ['test']
+    list_of_rules
+)
+
+```
+
+One more example(request `/orders?finished=True&amount=100`):
+
+```
+@app.route('/orders', methods=['GET'])
 @validate_params(
-    Param('id', POST, Type(list)), # should be sent as string `1,2,3`
-    Param('query', POST, Type(dict)), # should be sent as string `key1:val1, key2,val2`
+    Param('finished', GET, bool, required=False),
+    Param('amount', GET, int, required=False),
 )
-def route():
-    print request.get_valid_param(POST, 'id')) # [1, 2, 3] (list)
-    print request.get_valid_param(POST, 'query')) # {'key1': 'val1', 'key2': 'val2'} (dict)
+def route(finished, amount):
+    print finished # True (bool)
+    print amount # 100 (int)
 
 ```
 
 
-You can combine rules for frequent using `CompositeRule`:
+You can combine rules(`CompositeRule`) for frequent using:
 
 ```
 from flask_request_validator import CompositeRule
 
-type_rule = CompositeRule(Required(), Enum('type1', 'type2'))
+
+name_rule = CompositeRule(Pattern(r'^[a-z-_.]{8,10}$'), your_custom_rule...)
 
 
-@app.route('/route_one', methods=['POST'])
+@app.route('/person', methods=['POST'])
 @validate_params(
-    Param('type', POST, type_rule),
-    # other params
+    Param('first_name', JSON, str, rules=name_rule),
+    # other params is just example
+    Param('streets', JSON, list), should be sent as string `street1,stree2`
+    Param('city', JSON, str, rules=[Enum('Minsk')]),
+    Param('meta', JSON, dict), # should be sent as string `key1:val1, key2,val2`
 )
-def route_one():
-    pass
-
-@app.route('/route_two', methods=['POST'])
-@validate_params(
-    Param('type', POST, type_rule),
-    # other params
-)
-def route_two():
+def route_one(first_name, streets, city, meta):
+    # first_name (str)
+    # streets (list)
+    # city (str)
+    # meta (dict)
 ```
 
 Also you can create your custom rule. Here is a small example:
 
 ```
-from flask_request_validator.rules import AbstractRule
+from flask_request_validator import AbstractRule
+
 
 class MyRule(AbstractRule):
 
     def validate(self, value):
-        return ['Value "%s" is not valid' % value]
-
-@app.route('/route_one', methods=['POST'])
-@validate_params(
-    Param('type', POST, MyRule())
-)
-def route_one():
+        errors = []
+        # do something ...
+        errors.append('My error')
+        return errors
 ```

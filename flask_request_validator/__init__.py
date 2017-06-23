@@ -1,8 +1,9 @@
-from .validator import validate_params, Param, GET, POST, VIEW
+from .validator import validate_params, Param, GET, FORM, PATH, JSON
 from .rules import (
-    Type,
-    Required,
     Pattern,
     Enum,
-    CompositeRule
+    MaxLength,
+    MinLength,
+    CompositeRule,
+    AbstractRule
 )
