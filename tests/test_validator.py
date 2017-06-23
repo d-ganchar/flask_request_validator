@@ -2,145 +2,210 @@ import json
 from unittest import TestCase
 
 import flask
-from flask import request
 
-from flask_request_validator import Type
 from flask_request_validator.exceptions import InvalidRequest
 from flask_request_validator import CompositeRule
 from flask_request_validator import (
     Enum,
     GET,
-    POST,
     Param,
     Pattern,
-    Required,
     validate_params
 )
-from flask_request_validator.request import FlaskRequest
-from flask_request_validator.validator import VIEW, get_request_value
+from flask_request_validator.rules import MaxLength, MinLength
+from flask_request_validator.validator import PATH, FORM, JSON
 
 app = flask.Flask(__name__)
 app.testing = True
-app.request_class = FlaskRequest
 
-type_composite = CompositeRule(Required(), Type(str), Enum('type1', 'type2'))
+type_composite = CompositeRule(Enum('type1', 'type2'))
 
 
 @app.route('/main/<string:key>/<string:uuid>', methods=['POST'])
 @validate_params(
-    Param('key', VIEW, Type(str), Enum('key1', 'key2')),
-    Param('uuid', VIEW, Type(str), Pattern(r'^[a-z-_.]{8,10}$')),
-    Param('id', GET, Type(int)),
-    Param('sure', GET, Type(bool)),
-    Param('sys', POST, Type(str), Required(), Pattern(r'^[a-z.]{3,6}$')),
-    Param('type', POST, type_composite),
-    Param('price', POST, Type(float)),
-    Param('cities', POST, Type(list)),
-    Param('dql', POST, Type(dict)),
+    Param('key', PATH, str, rules=[Enum('key1', 'key2')]),
+    Param('uuid', PATH, str, rules=[Pattern(r'^[a-z-_.]{8,10}$')]),
+    Param('sure', GET, bool, False),
+    Param('sys', FORM, str, rules=[Pattern(r'^[a-z.]{3,6}$')]),
+    Param('types', FORM, str, rules=type_composite),
+    Param('price', FORM, float, False),
+    Param('cities', FORM, list, False),
+    Param('dql', FORM, dict, False),
+    Param('default', FORM, dict, False, default=lambda: ['test']),
 )
-def route(key, uuid):
-    return json.dumps({'key': key, 'uuid': uuid})
+def route_form(key, uuid, sure, sys, types, price, cities, dql, default):
+    return json.dumps([
+        [key, key.__class__.__name__],
+        [uuid, uuid.__class__.__name__],
+        [sure, sure.__class__.__name__],
+        [sys, sys.__class__.__name__],
+        [types, types.__class__.__name__],
+        [price, price.__class__.__name__],
+        [cities, cities.__class__.__name__],
+        [dql, dql.__class__.__name__],
+        [default, default.__class__.__name__],
+    ])
 
 
-@app.route('/test/<string:key>', methods=['POST'])
-def route2(key):
-    return json.dumps({'key': key})
+@app.route('/json/<int:id>', methods=['POST'])
+@validate_params(
+    Param('id', PATH, int),
+    Param('first_name', JSON, str, rules=[MaxLength(6)]),
+    Param('last_name', JSON, str, rules=[MinLength(2)]),
+    Param('age', JSON, int),
+    Param('names', JSON, list),
+    Param('height', JSON, int, False, default=174),
+)
+def route_json(id, first_name, last_name, age, names, height):
+    return json.dumps([
+        [id, id.__class__.__name__],
+        [first_name, first_name.__class__.__name__],
+        [last_name, last_name.__class__.__name__],
+        [age, age.__class__.__name__],
+        [names, names.__class__.__name__],
+        [height, height.__class__.__name__],
+    ])
+
+
+@app.route('/invalid', methods=['POST'])
+@validate_params(
+    Param('first_name', JSON, str, rules=[MaxLength(6)]),
+    Param('last_name', JSON, str, rules=[MinLength(6)]),
+    Param('street', JSON, str),
+    Param('city', JSON, str, rules=[Enum('Minsk')]),
+    Param('uuid', JSON, str, rules=[Pattern(r'^[a-z-_.]{8,10}$')]),
+    Param('types', JSON, str, rules=type_composite),
+)
+def invalid_route(first_name, last_name, street, city, uuid):
+    pass
 
 
 class TestValidator(TestCase):
 
-    maxDiff = 2000
-
     def test_invalid_route(self):
         with app.test_client() as client:
             try:
-                client.post('/main/key5/te$t', data={'type': 'wrong'})
-            except InvalidRequest as e:
-                expected = {
-                    GET: {},
-                    POST: {
-                        'sys': [
-                            'Value is required',
-                        ],
-                        'type': [
-                            "Incorrect value wrong. Allowed values: ('type1', 'type2')"
-                        ]
-                    },
-                    VIEW: {
-                        'uuid': [
-                            'Value te$t does not match pattern ^[a-z-_.]{8,10}$'
-                        ],
-                        'key': [
-                            "Incorrect value key5. Allowed values: ('key1', 'key2')"
-                        ]
-                    }
-                }
-
-                self.assertDictEqual(expected, e.errors)
-
-    def test_valid_route(self):
-        with app.test_client() as client:
-            sys_value = 'key.a'
-            type_value = 'type1'
-            price_value = 2.99
-            client.post(
-                '/main/key1/test_test?id=1&sure=True',
-                data=dict(
-                    sys=sys_value,
-                    type=type_value,
-                    price=price_value,
-                    cities='Minsk, Praha, Berlin',
-                    dql='orderBy: DESC, select: name'
-                )
-            )
-
-            self.assertEqual(1, request.get_valid_param(GET, 'id'))
-            self.assertTrue(request.get_valid_param(GET, 'sure'))
-            self.assertEqual('key1', request.get_valid_param(VIEW, 'key'))
-            self.assertEqual(type_value, request.get_valid_param(POST, 'type'))
-            self.assertEqual(sys_value, request.get_valid_param(POST, 'sys'))
-            self.assertEqual(price_value, request.get_valid_param(POST, 'price'))
-            self.assertEqual(
-                ['Minsk', 'Praha', 'Berlin'],
-                request.get_valid_param(POST, 'cities')
-            )
-            self.assertEqual(
-                {'orderBy': 'DESC', 'select': 'name'},
-                request.get_valid_param(POST, 'dql')
-            )
-
-    def test_invalid_get(self):
-        with app.test_client() as client:
-
-            try:
                 client.post(
-                    '/main/key1/test_test?id=wrong',
-                    data=dict(sys='key.a', type='type1')
+                    '/invalid',
+                    data=json.dumps(dict(
+                        first_name='very-very-long',
+                        last_name='small',
+                        city='wrong',
+                        uuid='!#wrong#!',
+                        types='wrong'
+                    )),
+                    content_type='application/json'
                 )
             except InvalidRequest as e:
-                expected = {
-                    GET: {'id': ['Invalid type for value wrong']},
-                    POST: {},
-                    VIEW: {}
-                }
+                self.assertDictEqual(
+                    e.errors,
+                    {
+                        'city': ['Incorrect value "wrong". Allowed values: (\'Minsk\',)'],
+                        'first_name': ['Invalid length for value "very-very-long". Max length = 6'],
+                        'last_name': ['Invalid length for value "small". Min length = 6'],
+                        'uuid': ['Value "!#wrong#!" does not match pattern ^[a-z-_.]{8,10}$'],
+                        'street': ['Value is required'],
+                        'types': ['Incorrect value "wrong". Allowed values: (\'type1\', \'type2\')']
+                    }
+                )
 
-                self.assertDictEqual(expected, e.errors)
-
-    def test_get_request_value(self):
+    def test_valid_form(self):
         with app.test_client() as client:
-            client.post(
-                '/test/test_key?id=1&limit=10', data=dict(type='test_type')
+            sys = 'key.a'
+            types = 'type1'
+            price = 2.99
+            key = 'key1'
+            uuid = 'test_test'
+            sure = True
+            cities = 'Minsk, Prague, Berlin'
+            dql = 'orderBy: DESC, select: name'
+            data = client.post(
+                '/main/%s/%s?sure=%s' % (key, uuid, str(sure)),
+                data=dict(
+                    sys=sys,
+                    types=types,
+                    price=price,
+                    cities=cities,
+                    dql=dql
+                )
             )
 
-            expected = [
-                ('id', GET, u'1'),
-                ('limit', GET, u'10'),
-                ('key', VIEW, u'test_key'),
-                ('type', POST, u'test_type'),
-            ]
+            cities = cities.split(', ')
 
-            for name, param_type, value in expected:
-                self.assertEqual(
-                    value,
-                    get_request_value(param_type, name)
-                )
+            self.assertEqual(
+                data.data,
+                json.dumps([
+                    [key, key.__class__.__name__],
+                    [uuid, uuid.__class__.__name__],
+                    [sure, sure.__class__.__name__],
+                    [sys, sys.__class__.__name__],
+                    [types, types.__class__.__name__],
+                    [price, price.__class__.__name__],
+                    [cities, cities.__class__.__name__],
+                    [{'orderBy': 'DESC', 'select': 'name'}, 'dict'],
+                    [['test'], 'list'],
+                ])
+            )
+
+    def test_valid_json(self):
+        with app.test_client() as client:
+            first_name = 'Ridley'
+            last_name = 'Scott'
+            age = 79
+            names = 'Aliens, Prometheus'
+            data = client.post(
+                '/json/1',
+                data=json.dumps(dict(
+                    first_name=first_name,
+                    last_name=last_name,
+                    age=age,
+                    names=names
+                )),
+                content_type='application/json'
+            )
+
+            names = names.split(', ')
+            self.assertEqual(
+                data.data,
+                json.dumps([
+                    [1, 'int'],
+                    [first_name, first_name.__class__.__name__],
+                    [last_name, last_name.__class__.__name__],
+                    [age, age.__class__.__name__],
+                    [names, names.__class__.__name__],
+                    [174, 'int'],
+                ])
+            )
+
+
+class TestParam(TestCase):
+    def test_types(self):
+        param_int = Param('test', FORM, int)
+        param_list = Param('test', FORM, list)
+        param_dict = Param('test', FORM, dict)
+        param_bool = Param('test', FORM, bool)
+        param_none = Param('test', FORM)
+
+        self.assertEqual(1, param_int.value_to_type('1'))
+        self.assertEqual(True, param_bool.value_to_type('1'))
+        self.assertEqual(True, param_bool.value_to_type('true'))
+        self.assertEqual(True, param_bool.value_to_type('True'))
+        self.assertEqual(False, param_bool.value_to_type('0'))
+        self.assertEqual(False, param_bool.value_to_type('false'))
+        self.assertEqual(False, param_bool.value_to_type('False'))
+
+        self.assertEqual(
+            ['Minsk', 'Prague', 'Berlin'],
+            param_list.value_to_type('Minsk, Prague, Berlin')
+        )
+
+        self.assertEqual(
+            {
+                'country': 'Belarus',
+                'capital': 'Minsk'
+            },
+            param_dict.value_to_type('country: Belarus, capital: Minsk')
+        )
+
+        data = {'test': {'test': ['test1', 'test2']}}
+        self.assertEqual(data, param_none.value_to_type(data))

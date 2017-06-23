@@ -1,76 +1,99 @@
-from copy import deepcopy
+import types
 from functools import wraps
 
-from werkzeug.datastructures import ImmutableDict
-
-from .exceptions import InvalidRequest, UndefinedParamType
-from .rules import Type, Required, CompositeRule
 from flask import request
 
+from .rules import CompositeRule, ALLOWED_TYPES
+from .exceptions import (
+    NotAllowedType,
+    UndefinedParamType,
+    InvalidRequest
+)
 
+
+# request params. see: __get_request_value()
 GET = 'GET'
-VIEW = 'VIEW'
-POST = 'POST'
-PARAM_TYPES = (GET, VIEW, POST)
+PATH = 'PATH'
+FORM = 'FORM'
+JSON = 'JSON'
+PARAM_TYPES = (GET, PATH, JSON, FORM)
 
 
 class Param(object):
 
-    def __init__(self, name, param_type, *rules):
+    def __init__(self, name, param_type, value_type=None,
+                 required=True, default=None, rules=None):
         """
-
-        :param tuple rules:
+        :param mixed default:
+        :param bool required:
+        :param type value_type: type of value (int, list, etc)
+        :param list|CompositeRule rules:
         :param str name: name of param
-        :param str param_type: type of request param (GET OR POST)
+        :param str param_type: type of request param (see: PARAM_TYPES)
+        :raises: UndefinedParamType, NotAllowedType
         """
 
+        if param_type not in PARAM_TYPES:
+            raise UndefinedParamType('Undefined param type "%s"' % param_type)
+
+        if value_type and value_type not in ALLOWED_TYPES:
+            raise NotAllowedType('Value type "%s" is not allowed' % value_type)
+
+        self.value_type = value_type
+        self.default = default
+        self.required = required
         self.name = name
         self.param_type = param_type
-        self.rules = rules
+        self.rules = rules or []
 
-    def convert_value(self, value):
+    def value_to_type(self, value):
         """
         :param mixed value:
         :return: mixed
         """
+        if self.value_type == bool:
+            value = value.lower()
 
-        for rule in self.rules:
-            if isinstance(rule, Type) and value:
-                value = rule.value_to_type(value)
-
-                break
+            if value in ('true', '1'):
+                value = True
+            elif value in ('false', '0'):
+                value = False
+        elif self.value_type == list:
+            value = [item.strip() for item in value.split(',')]
+        elif self.value_type == dict:
+            value = {
+                item.split(':')[0].strip(): item.partition(':')[-1].strip()
+                for item in value.split(',')
+            }
+        elif self.value_type:
+            value = self.value_type(value)
 
         return value
 
 
 def validate_params(*params):
     """
-    Validate route using json schema. Example:
+    Validate route of request. Example:
 
     @app.route('/<int:level>')
     @validate_params(
-        # POST param
-        Param('param_name', POST, Type(str), Required()),
-        # VIEW param
-        Param('level', VIEW, Type(str), Required(), Pattern(r'^[a-zA-Z0-9-_.]{5,20}$')),
+        # FORM param(request.form)
+        Param('param_name', FROM, ...),
+        # PATH param(part of route - request.view_args)
+        Param('level', PATH, rules=[Pattern(r'^[a-zA-Z0-9-_.]{5,20}$')]),
     )
     def example_route(level):
         ...
-
-    Also you can to set additional settings for Param(such as required, pattern(regex) etc).
-    See: rules
-
-    :param tuple params: (Param(), Param(), ...)
     """
 
     def validate_request(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            errors = __get_errors(params)
-            if errors[GET] or errors[POST] or errors[VIEW]:
+            errors, args = __get_errors(params)
+            if errors:
                 raise InvalidRequest(errors)
 
-            return func(*args, **kwargs)
+            return func(*args)
 
         return wrapper
 
@@ -79,61 +102,75 @@ def validate_params(*params):
 
 def __get_errors(params):
     """
-    Returns errors of validation
+    Returns errors of validation and valid values
     :param tuple params: (Param(), Param(), ...)
-    :rtype: dict
-    :return: {
-        'GET': {'param_name': ['error1', 'error2', ...]},
-        'VIEW': {'param_name': ['error1', 'error2', ...]},
-        'POST': {'param_name': ['error1', 'error2', ...]}
-    }
+    :rtype: list
+    :return:
+        {{'param_name': ['error1', 'error2', ...], ...},
+        [value1, value2, value3, ...]
     """
 
-    errors = {
-        GET: {},
-        VIEW: {},
-        POST: {},
-    }
-    valid_values = deepcopy(errors)
+    errors = {}
+    valid_values = []
 
     for param in params:
         param_name = param.name
         param_type = param.param_type
-        value = get_request_value(param_type, param_name)
-        for rule in param.rules:
-            if isinstance(rule, (Type, CompositeRule)) and value:
-                value = rule.value_to_type(value)
+        value = __get_request_value(param_type, param_name)
 
-                break
+        if value is None:
+            if param.required:
+                errors[param_name] = ['Value is required']
 
-        for rule in param.rules:
-            if isinstance(rule, Required) or value:
-                rule_errors = rule.validate(value)
-                if rule_errors:
-                    errors[param_type].setdefault(param_name, [])
+                continue
+            else:
+                if param.default:
+                    if isinstance(param.default, types.LambdaType):
+                        value = param.default()
+                    else:
+                        value = param.default
 
-                    errors[param_type][param_name].extend(rule_errors)
-                else:
-                    valid_values[param_type][param_name] = value
+                    valid_values.append(value)
 
-    request.valid_params = ImmutableDict(valid_values)
+                continue
+        else:
+            try:
+                value = param.value_to_type(value)
+            except (ValueError, TypeError):
+                errors[param_name] = [
+                    'Error of conversion value "%s" to type %s' %
+                    (value, param.value_type)
+                ]
 
-    return errors
+                continue
+
+            rules_errors = []
+            for rule in param.rules:
+                rules_errors.extend(rule.validate(value))
+
+            if rules_errors:
+                errors[param_name] = rules_errors
+            else:
+                valid_values.append(value)
+
+    return errors, valid_values
 
 
-def get_request_value(value_type, name):
+def __get_request_value(value_type, name):
     """
     :param str value_type: POST, GET or VIEW
     :param str name:
     :raise: UndefinedParamType
     :return: mixed
     """
-    if value_type == POST:
+    if value_type == FORM:
         value = request.form.get(name)
     elif value_type == GET:
         value = request.args.get(name)
-    elif value_type == VIEW:
+    elif value_type == PATH:
         value = request.view_args.get(name)
+    elif value_type == JSON:
+        value = request.get_json(force=True).get(name)
     else:
         raise UndefinedParamType('Undefined param type %s' % name)
 
