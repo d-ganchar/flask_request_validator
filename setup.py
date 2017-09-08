@@ -13,7 +13,7 @@ setup(
     version='2.0.2',
     description='Flask request data validation',
     long_description=long_description,
-    url='https://github.com/d-ganchar/flask-request-validator',
+    url='https://github.com/d-ganchar/flask_request_validator',
     author='Danila Ganchar',
     author_email='danila.ganchar@gmail.com',
     license='MIT',
