@@ -3,13 +3,12 @@ from functools import wraps
 
 from flask import request
 
-from .rules import CompositeRule, ALLOWED_TYPES
 from .exceptions import (
     NotAllowedType,
     UndefinedParamType,
     InvalidRequest
 )
-
+from .rules import CompositeRule, ALLOWED_TYPES
 
 # request params. see: __get_request_value()
 GET = 'GET'
@@ -89,11 +88,14 @@ def validate_params(*params):
     def validate_request(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            errors, args = __get_errors(params)
+            errors, endpoint_args = __get_errors(params)
             if errors:
                 raise InvalidRequest(errors)
 
-            return func(*args)
+            if args:
+                endpoint_args = (args[0], ) + tuple(endpoint_args)
+
+            return func(*endpoint_args)
 
         return wrapper
 
@@ -164,14 +166,13 @@ def __get_request_value(value_type, name):
     :return: mixed
     """
     if value_type == FORM:
-        value = request.form.get(name)
+        return request.form.get(name)
     elif value_type == GET:
-        value = request.args.get(name)
+        return request.args.get(name)
     elif value_type == PATH:
-        value = request.view_args.get(name)
+        return request.view_args.get(name)
     elif value_type == JSON:
-        value = request.get_json(force=True).get(name)
+        json_ = request.get_json()
+        return json_.get(name) if json_ else json_
     else:
         raise UndefinedParamType('Undefined param type %s' % name)
-
-    return value

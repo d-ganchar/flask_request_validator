@@ -2,8 +2,9 @@ import json
 from unittest import TestCase
 
 import flask
+from flask import Response
+from flask_restful import Resource, Api
 
-from flask_request_validator.exceptions import InvalidRequest
 from flask_request_validator import CompositeRule
 from flask_request_validator import (
     Enum,
@@ -12,11 +13,33 @@ from flask_request_validator import (
     Pattern,
     validate_params
 )
+from flask_request_validator.exceptions import InvalidRequest
 from flask_request_validator.rules import MaxLength, MinLength
 from flask_request_validator.validator import PATH, FORM, JSON
 
 app = flask.Flask(__name__)
+test_api = Api(app, '/v1')
+
 app.testing = True
+
+
+class TestApi(Resource):
+
+    @validate_params(
+        Param('key', JSON, int),
+        Param('sure', JSON, bool)
+    )
+    def put(self, key, sure):
+        return Response(
+            json.dumps([
+                [key, key.__class__.__name__],
+                [sure, sure.__class__.__name__],
+            ]),
+            mimetype='application/json'
+        )
+
+
+test_api.add_resource(TestApi, '/resource')
 
 type_composite = CompositeRule(Enum('type1', 'type2'))
 
@@ -209,3 +232,38 @@ class TestParam(TestCase):
 
         data = {'test': {'test': ['test1', 'test2']}}
         self.assertEqual(data, param_none.value_to_type(data))
+
+
+class TestRestfull(TestCase):
+
+    def test_get(self):
+        key = 1
+        sure = True
+
+        with app.test_client() as client:
+            with self.assertRaises(InvalidRequest):
+                client.put(
+                    '/v1/resource',
+                    data=json.dumps(dict(sure=str(sure), )),
+                    content_type='application/json'
+                )
+            with self.assertRaises(InvalidRequest):
+                client.put(
+                    '/v1/resource',
+                    data=json.dumps(dict(key=key, )),
+                    content_type='application/json'
+                )
+
+            data = client.put(
+                '/v1/resource',
+                data=json.dumps(dict(sure=str(sure), key=key)),
+                content_type='application/json'
+            )
+            self.assertEqual(
+                data.data,
+                json.dumps([
+                    [key, key.__class__.__name__],
+                    [sure, sure.__class__.__name__],
+                ])
+            )
+
