@@ -78,15 +78,17 @@ def route_form(key, uuid, sure, sys, types, price, cities, dql, default):
     Param('age', JSON, int),
     Param('names', JSON, list),
     Param('height', JSON, int, False, default=174),
+    Param('children', JSON, int, False),
 )
-def route_json(id, first_name, last_name, age, names, height):
+def route_json(id_, first_name, last_name, age, names, height, children):
     return json.dumps([
-        [id, id.__class__.__name__],
+        [id_, id_.__class__.__name__],
         [first_name, first_name.__class__.__name__],
         [last_name, last_name.__class__.__name__],
         [age, age.__class__.__name__],
         [names, names.__class__.__name__],
         [height, height.__class__.__name__],
+        [children, children.__class__.__name__],
     ])
 
 
@@ -197,6 +199,7 @@ class TestValidator(TestCase):
                     [age, age.__class__.__name__],
                     [names, names.__class__.__name__],
                     [174, 'int'],
+                    [None, None.__class__.__name__],
                 ])
             )
 
