@@ -132,7 +132,7 @@ def __get_errors(params):
                     else:
                         value = param.default
 
-                    valid_values.append(value)
+                valid_values.append(value)
 
                 continue
         else:
