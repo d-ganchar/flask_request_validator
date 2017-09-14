@@ -259,7 +259,7 @@ class TestRestfull(TestCase):
 
             data = client.put(
                 '/v1/resource',
-                data=json.dumps(dict(sure=str(sure), key=key)),
+                data=json.dumps(dict(sure=sure, key=key)),
                 content_type='application/json'
             )
             self.assertEqual(
