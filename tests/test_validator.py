@@ -177,7 +177,7 @@ class TestValidator(TestCase):
             first_name = 'Ridley'
             last_name = 'Scott'
             age = 79
-            names = 'Aliens, Prometheus'
+            names = ['Aliens', 'Prometheus']
             data = client.post(
                 '/json/1',
                 data=json.dumps(dict(
@@ -189,7 +189,6 @@ class TestValidator(TestCase):
                 content_type='application/json'
             )
 
-            names = names.split(', ')
             self.assertEqual(
                 data.data,
                 json.dumps([

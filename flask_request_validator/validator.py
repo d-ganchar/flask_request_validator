@@ -50,22 +50,23 @@ class Param(object):
         :param mixed value:
         :return: mixed
         """
-        if self.value_type == bool:
-            if self.param_type != JSON:
+        if self.param_type != JSON:
+            if self.value_type == bool:
                 low_val = value.lower()
 
                 if low_val in ('true', '1'):
                     value = True
                 elif low_val in ('false', '0'):
                     value = False
-        elif self.value_type == list:
-            value = [item.strip() for item in value.split(',')]
-        elif self.value_type == dict:
-            value = {
-                item.split(':')[0].strip(): item.partition(':')[-1].strip()
-                for item in value.split(',')
-            }
-        elif self.value_type:
+            elif self.value_type == list:
+                value = [item.strip() for item in value.split(',')]
+            elif self.value_type == dict:
+                value = {
+                    item.split(':')[0].strip(): item.partition(':')[-1].strip()
+                    for item in value.split(',')
+                }
+
+        if self.value_type:
             value = self.value_type(value)
 
         return value
@@ -147,7 +148,7 @@ def __get_errors(params):
 
                 continue
 
-            if param.value_type != type(value):
+            if param.value_type and param.value_type != type(value):
                 errors[param_name] = [
                     'Error of conversion value "%s" to type %s' %
                     (value, param.value_type)
