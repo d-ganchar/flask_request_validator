@@ -138,23 +138,24 @@ def __get_errors(params):
 
                 continue
         else:
-            try:
-                value = param.value_to_type(value)
-            except (ValueError, TypeError):
-                errors[param_name] = [
-                    'Error of conversion value "%s" to type %s' %
-                    (value, param.value_type)
-                ]
+            if param.value_type:
+                try:
+                    value = param.value_to_type(value)
+                except (ValueError, TypeError):
+                    errors[param_name] = [
+                        'Error of conversion value "%s" to type %s' %
+                        (value, param.value_type)
+                    ]
 
-                continue
+                    continue
 
-            if param.value_type and param.value_type != type(value):
-                errors[param_name] = [
-                    'Error of conversion value "%s" to type %s' %
-                    (value, param.value_type)
-                ]
+                if param.value_type != type(value):
+                    errors[param_name] = [
+                        'Error of conversion value "%s" to type %s' %
+                        (value, param.value_type)
+                    ]
 
-                continue
+                    continue
 
             rules_errors = []
             for rule in param.rules:
