@@ -128,7 +128,7 @@ def __get_errors(params):
 
                 continue
             else:
-                if param.default:
+                if param.default is not None:
                     if isinstance(param.default, types.LambdaType):
                         value = param.default()
                     else:
