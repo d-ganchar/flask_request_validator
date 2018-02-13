@@ -1,9 +1,11 @@
 import json
+from six.moves.urllib.parse import urlencode
 from unittest import TestCase
 
 import flask
 from flask import Response
 from flask_restful import Resource, Api
+from nose_parameterized import parameterized
 
 from flask_request_validator import CompositeRule
 from flask_request_validator import (
@@ -23,6 +25,7 @@ test_api = Api(app, '/v1')
 app.testing = True
 
 
+@test_api.resource('/resource')
 class TestApi(Resource):
 
     @validate_params(
@@ -38,8 +41,18 @@ class TestApi(Resource):
             mimetype='application/json'
         )
 
-
-test_api.add_resource(TestApi, '/resource')
+    @validate_params(
+        Param('cities', GET, list),
+        Param('countries', GET, dict)
+    )
+    def get(self, cities, countries):
+        return Response(
+            json.dumps({
+                'cities': [cities, cities.__class__.__name__],
+                'countries': [countries, countries.__class__.__name__],
+            }),
+            mimetype='application/json'
+        )
 
 type_composite = CompositeRule(Enum('type1', 'type2'))
 
@@ -158,8 +171,8 @@ class TestValidator(TestCase):
             cities = cities.split(', ')
 
             self.assertEqual(
-                data.data,
-                json.dumps([
+                json.loads(data.get_data(as_text=True)),
+                [
                     [key, key.__class__.__name__],
                     [uuid, uuid.__class__.__name__],
                     [sure, sure.__class__.__name__],
@@ -169,7 +182,7 @@ class TestValidator(TestCase):
                     [cities, cities.__class__.__name__],
                     [{'orderBy': 'DESC', 'select': 'name'}, 'dict'],
                     [['test'], 'list'],
-                ])
+                ]
             )
 
     def test_valid_json(self):
@@ -190,8 +203,8 @@ class TestValidator(TestCase):
             )
 
             self.assertEqual(
-                data.data,
-                json.dumps([
+                json.loads(data.get_data(as_text=True)),
+                [
                     [1, 'int'],
                     [first_name, first_name.__class__.__name__],
                     [last_name, last_name.__class__.__name__],
@@ -199,7 +212,7 @@ class TestValidator(TestCase):
                     [names, names.__class__.__name__],
                     [174, 'int'],
                     [None, None.__class__.__name__],
-                ])
+                ]
             )
 
 
@@ -238,34 +251,52 @@ class TestParam(TestCase):
 
 class TestRestfull(TestCase):
 
-    def test_get(self):
-        key = 1
-        sure = True
-
+    @parameterized.expand([
+        ({'sure': str(True)}, ),
+        ({'key': 1}, ),
+    ])
+    def test_put_raises(self, data):
         with app.test_client() as client:
             with self.assertRaises(InvalidRequest):
                 client.put(
                     '/v1/resource',
-                    data=json.dumps(dict(sure=str(sure), )),
-                    content_type='application/json'
-                )
-            with self.assertRaises(InvalidRequest):
-                client.put(
-                    '/v1/resource',
-                    data=json.dumps(dict(key=key, )),
+                    data=json.dumps(data),
                     content_type='application/json'
                 )
 
+    def test_put_ok(self):
+        key = 1
+        sure = True
+
+        with app.test_client() as client:
             data = client.put(
                 '/v1/resource',
                 data=json.dumps(dict(sure=sure, key=key)),
                 content_type='application/json'
             )
             self.assertEqual(
-                data.data,
-                json.dumps([
+                json.loads(data.get_data(as_text=True), encoding='utf-8'),
+                [
                     [key, key.__class__.__name__],
                     [sure, sure.__class__.__name__],
-                ])
+                ]
             )
 
+    def test_get_ok(self):
+        cities = ['Minsk', 'Tbilisi', ]
+        countries = {'belarus': 'minsk', 'georgia': 'tbilisi'}
+        with app.test_client() as client:
+            data = client.get(
+                '/v1/resource?' + urlencode({
+                    'cities': ','.join(cities),
+                    'countries': 'belarus:minsk,georgia:tbilisi'
+                }),
+            )
+
+            self.assertDictEqual(
+                json.loads(data.get_data(as_text=True)),
+                {
+                    'cities': [cities, cities.__class__.__name__],
+                    'countries': [countries, countries.__class__.__name__],
+                }
+            )

@@ -4,7 +4,15 @@
 [![Coverage Status](https://coveralls.io/repos/github/d-ganchar/flask_request_validator/badge.svg?branch=master)](https://coveralls.io/github/d-ganchar/flask_request_validator?branch=master)
 
 
-Package provide possibility to validate of Flask request and convert parameters to specific type.
+Package provide possibility to validate of Flask request.
+
+Key features
+------------
+- Easy and beautiful
+- Type conversion
+- Extensible
+- Supports [Flask-RESTful](https://flask-restful.readthedocs.io/en/latest/)
+- Supports Python 2.7 and Python 3.3+
 
 ### How to install:
 
@@ -110,17 +118,17 @@ name_rule = CompositeRule(Pattern(r'^[a-z-_.]{8,10}$'), your_custom_rule...)
 
 @app.route('/person', methods=['POST'])
 @validate_params(
-    Param('first_name', JSON, str, rules=name_rule),
+    Param('first_name', GET, str, rules=name_rule),
     # other params is just example
-    Param('streets', JSON, list), should be sent as string `street1,stree2`
-    Param('city', JSON, str, rules=[Enum('Minsk')]),
-    Param('meta', JSON, dict), # should be sent as string `key1:val1, key2,val2`
+    Param('streets', GET, list), should be sent as string `street1,stree2`
+    Param('city', GET, str, rules=[Enum('Minsk')]),
+    Param('meta', GET, dict), # should be sent as string `key1:val1, key2,val2`
 )
 def route_one(first_name, streets, city, meta):
-    # first_name (str)
-    # streets (list)
-    # city (str)
-    # meta (dict)
+    # print(first_name) (str)
+    # print(streets) (list)
+    # print(city) (str)
+    # print(meta) (dict)
 ```
 
 Also you can create your custom rule. Here is a small example:
