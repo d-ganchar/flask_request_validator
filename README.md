@@ -122,7 +122,7 @@ name_rule = CompositeRule(Pattern(r'^[a-z-_.]{8,10}$'), your_custom_rule...)
     # other params is just example
     Param('streets', GET, list), should be sent as string `street1,stree2`
     Param('city', GET, str, rules=[Enum('Minsk')]),
-    Param('meta', GET, dict), # should be sent as string `key1:val1, key2,val2`
+    Param('meta', GET, dict), # should be sent as string `key1:val1,key2,val2`
 )
 def route_one(first_name, streets, city, meta):
     # print(first_name) (str)
