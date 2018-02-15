@@ -21,7 +21,7 @@ setup(
     install_requires=['flask'],
     tests_require=['nose'],
     classifiers=[
-        'Development Status :: Production/Stable',
+        'Development Status :: 5 - Production/Stable',
         'Framework :: Flask',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.3',
