@@ -106,42 +106,63 @@ def route(finished, amount):
 
 ```
 
-
-You can combine rules(`CompositeRule`) for frequent using:
-
-```
-from flask_request_validator import CompositeRule
-
-
-name_rule = CompositeRule(Pattern(r'^[a-z-_.]{8,10}$'), your_custom_rule...)
-
-
-@app.route('/person', methods=['POST'])
-@validate_params(
-    Param('first_name', GET, str, rules=name_rule),
-    # other params is just example
-    Param('streets', GET, list), should be sent as string `street1,stree2`
-    Param('city', GET, str, rules=[Enum('Minsk')]),
-    Param('meta', GET, dict), # should be sent as string `key1:val1,key2,val2`
-)
-def route_one(first_name, streets, city, meta):
-    # print(first_name) (str)
-    # print(streets) (list)
-    # print(city) (str)
-    # print(meta) (dict)
-```
-
 Also you can create your custom rule. Here is a small example:
 
 ```
 from flask_request_validator import AbstractRule
 
 
+def reserved_values():
+    return ['today', 'tomorrow']
+
+
 class MyRule(AbstractRule):
 
     def validate(self, value):
         errors = []
-        # do something ...
-        errors.append('My error')
+        if value in reserved_values():
+            errors.append('Value %s is reserved' % value)
+
+        # other errors...
+        errors.append('One more error')
+
         return errors
+
+
+@app.route('/')
+@validate_params(
+    Param('day', GET, str, False, rules=[MyRule()])
+)
+def hi(day):
+    return day
+```
+
+Open `?day=today`. You will see the exception: 
+
+```
+InvalidRequest: Invalid request data. {"day": ["Value today is reserved", "One more error"]}
+```
+
+Also you can combine rules(`CompositeRule`) for frequent using:
+
+```
+from flask_request_validator import CompositeRule
+
+
+name_rule = CompositeRule(Pattern(r'^[a-z-_.]{8,10}$'), one_more_rule, your_custom_rule, etc...)
+
+
+@app.route('/person')
+@validate_params(
+    Param('first_name', GET, str, rules=name_rule),
+    # other params is just example
+    Param('streets', GET, list), should be sent as string `street1,stree2`
+    Param('city', GET, str, rules=[Enum('Minsk')]),
+    Param('meta', GET, dict), # should be sent as string `key1:val1,key2:val2`
+)
+def route_one(first_name, streets, city, meta):
+    # print(first_name) (str)
+    # print(streets) (list)
+    # print(city) (str)
+    # print(meta) (dict)
 ```
