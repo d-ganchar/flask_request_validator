@@ -179,7 +179,8 @@ def __get_request_value(value_type, name):
     if value_type == FORM:
         return request.form.get(name)
     elif value_type == GET:
-        return request.args.get(name)
+        value = request.args.getlist(name)
+        return ",".join(value) if value else None
     elif value_type == PATH:
         return request.view_args.get(name)
     elif value_type == JSON:
