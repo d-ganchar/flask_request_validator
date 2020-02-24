@@ -1,10 +1,11 @@
+import io
 from setuptools import setup
-import pypandoc
 from os import path
 
 current_path = path.abspath(path.dirname(__file__))
 
-long_description = pypandoc.convert('README.md', 'rst')
+with io.open("README.rst", "rt", encoding="utf8") as f:
+    long_description = f.read()
 
 setup(
     name='flask_request_validator',
