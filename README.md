@@ -12,7 +12,7 @@ Key features
 - Type conversion
 - Extensible
 - Supports [Flask-RESTful](https://flask-restful.readthedocs.io/en/latest/)
-- Supports Python 2.7 / 3.5 / 3.6
+- Supports Python 2.7 / 3.5 / 3.6 / 3.7
 
 ### How to install:
 
