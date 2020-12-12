@@ -15,9 +15,9 @@ from flask_request_validator import (
     Pattern,
     validate_params
 )
-from flask_request_validator.exceptions import InvalidRequest
-from flask_request_validator.rules import MaxLength, MinLength
-from flask_request_validator.validator import PATH, FORM, JSON
+from flask_request_validator.exceptions import InvalidRequest, TooMuchArguments, InvalidHeader
+from flask_request_validator.rules import MaxLength, MinLength, NotEmpty
+from flask_request_validator.validator import PATH, FORM, JSON, HEADER
 
 app = flask.Flask(__name__)
 test_api = Api(app, '/v1')
@@ -118,6 +118,29 @@ def invalid_route(first_name, last_name, street, city, uuid):
     pass
 
 
+@app.route('/kwargs', methods=['GET'])
+@validate_params(
+    Param('first_name', JSON, str, rules=[MaxLength(4)]),
+    Param('last_name', JSON, str, rules=[MinLength(4)]),
+    Param('street', JSON, str, rules=[NotEmpty()]),
+    Param('city', JSON, str, rules=[Enum('Minsk')]),
+)
+def kwargs_are_okay(**kwargs):
+    for key, value in kwargs.items():
+        print('key:', key, 'value:', value)
+
+    return flask.jsonify(kwargs)
+
+
+@app.route('/header', methods=['GET'])
+@validate_params(
+    Param('username', HEADER, str, rules=[MaxLength(4)]),
+    Param('password', HEADER, str, rules=[MinLength(4)]),
+)
+def before_request(username, password):
+    return flask.jsonify({username: password})
+
+
 class TestValidator(TestCase):
 
     def test_invalid_route(self):
@@ -215,6 +238,42 @@ class TestValidator(TestCase):
                 ]
             )
 
+    def test_kwargs(self):
+        with app.test_client() as client:
+            data = {
+                'first_name': 'Egon',
+                'last_name': 'Olsen',
+                'street': '    Wallstreet         ',
+                'city': 'Minsk',
+            }
+            res = client.get('/kwargs', data=json.dumps(data), content_type='application/json')
+            self.assertEqual(200, res.status_code)
+            data['street'] = 'Wallstreet'
+            self.assertEqual(data, res.json)
+
+    def test_not_empty(self):
+        with app.test_client() as client:
+            data = {
+                'first_name': 'Egon',
+                'last_name': 'Olsen',
+                'street': '           ',
+                'city': 'Minsk',
+            }
+            with self.assertRaises(expected_exception=InvalidRequest):
+                client.get('/kwargs', data=json.dumps(data), content_type='application/json')
+
+    def test_too_much_arguments(self):
+        with app.test_client() as client:
+            data = {
+                'first_name': 'Egon',
+                'last_name': 'Olsen',
+                'street': 'Wallstreet',
+                'city': 'Minsk',
+                'an_unhandled_arg': 'this is too much! I will raise an TooMuchArgument exception!'
+            }
+            with self.assertRaises(expected_exception=TooMuchArguments):
+                client.get('/kwargs', data=json.dumps(data), content_type='application/json')
+
 
 class TestParam(TestCase):
     def test_types(self):
@@ -300,3 +359,28 @@ class TestRestfull(TestCase):
                     'countries': [countries, countries.__class__.__name__],
                 }
             )
+
+
+class TestValidateHttpHeader(TestCase):
+    def test_valid_header(self):
+        with app.test_client() as client:
+            username = 'Max'
+            password = '12345'
+            data = {
+                'username': username,
+                'password': password,
+            }
+            res = client.get('/header', headers=data)
+            self.assertEqual(200, res.status_code)
+            self.assertEqual({username: password}, res.json)
+
+    def test_invalid_header(self):
+        with app.test_client() as client:
+            username = 'Max'
+            password = '123'
+            data = {
+                'username': username,
+                'password': password,
+            }
+            with self.assertRaises(expected_exception=InvalidHeader):
+                client.get('/header', headers=data)
