@@ -1,4 +1,5 @@
 import re
+from typing import Tuple, List
 
 ALLOWED_TYPES = (str, bool, int, float, dict, list)
 
@@ -9,7 +10,7 @@ class AbstractRule(object):
         """
         :param mixed value:
         :rtype: list|None
-        :return: errors
+        :return: tuple of value and errors
         :rtype: list
         """
         raise NotImplementedError()
@@ -38,7 +39,7 @@ class Pattern(AbstractRule):
         if not self.pattern.search(value):
             errors.append('Value "%s" does not match pattern %s' %
                           (value, self.pattern.pattern))
-        return errors
+        return value, errors
 
 
 class Enum(AbstractRule):
@@ -51,14 +52,13 @@ class Enum(AbstractRule):
         if value not in self.allowed_values:
             errors.append('Incorrect value "%s". Allowed values: %s' %
                           (value, self.allowed_values))
-        return errors
+        return value, errors
 
 
 class MaxLength(AbstractRule):
 
     def __init__(self, length):
         """
-
         :param int length:
         """
         self.length = length
@@ -68,14 +68,13 @@ class MaxLength(AbstractRule):
         if len(value) > self.length:
             errors.append('Invalid length for value "%s". Max length = %s' %
                           (value, self.length))
-        return errors
+        return value, errors
 
 
 class MinLength(AbstractRule):
 
     def __init__(self, length):
         """
-
         :param int length:
         """
         self.length = length
@@ -85,4 +84,14 @@ class MinLength(AbstractRule):
         if len(value) < self.length:
             errors.append('Invalid length for value "%s". Min length = %s'
                           % (value, self.length))
-        return errors
+        return value, errors
+
+
+class NotEmpty(AbstractRule):
+    def validate(self, value: str) -> Tuple[str, List[str]]:
+        errors = []
+        value = value.strip()
+
+        if value == '':
+            errors.append('Got empty String')
+        return value, errors

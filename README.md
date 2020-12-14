@@ -39,7 +39,7 @@ $ pip install flask_request_validator
 
 `MaxLength(6)` - value checks at max length. Works for `str` and `list` values.
 
-`MixLength(6)` - value checks at min length. Works for `str` and `list` values.
+`MinLength(6)` - value checks at min length. Works for `str` and `list` values.
 
 `Enum('value1', 'value2')` - describes allowed values
 

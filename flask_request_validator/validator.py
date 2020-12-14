@@ -1,4 +1,5 @@
 import types
+import inspect
 from functools import wraps
 
 from flask import request
@@ -6,7 +7,9 @@ from flask import request
 from .exceptions import (
     NotAllowedType,
     UndefinedParamType,
-    InvalidRequest
+    InvalidRequest,
+    TooMuchArguments,
+    InvalidHeader
 )
 from .rules import CompositeRule, ALLOWED_TYPES
 
@@ -15,7 +18,8 @@ GET = 'GET'
 PATH = 'PATH'
 FORM = 'FORM'
 JSON = 'JSON'
-PARAM_TYPES = (GET, PATH, JSON, FORM)
+HEADER = 'HEADER'
+PARAM_TYPES = (GET, PATH, JSON, FORM, HEADER)
 
 
 class Param(object):
@@ -92,10 +96,21 @@ def validate_params(*params):
         def wrapper(*args, **kwargs):
             errors, endpoint_args = __get_errors(params)
             if errors:
-                raise InvalidRequest(errors)
+                if __all_params_are_of_type(params, HEADER):
+                    raise InvalidHeader(errors)
+                else:
+                    raise InvalidRequest(errors)
+
+            if __all_params_are_of_type(params, JSON):
+                __check_if_too_much_params_in_request(params)
 
             if args:
                 endpoint_args = (args[0], ) + tuple(endpoint_args)
+
+            spec = inspect.getfullargspec(func)
+
+            if spec.varkw == 'kwargs':
+                return func(**{v.name: endpoint_args[i] for i, v in enumerate(params) if endpoint_args[i] is not None})
 
             return func(*endpoint_args)
 
@@ -125,8 +140,6 @@ def __get_errors(params):
         if value is None:
             if param.required:
                 errors[param_name] = ['Value is required']
-
-                continue
             else:
                 if param.default is not None:
                     if isinstance(param.default, types.LambdaType):
@@ -135,8 +148,6 @@ def __get_errors(params):
                         value = param.default
 
                 valid_values.append(value)
-
-                continue
         else:
             if param.value_type:
                 try:
@@ -159,7 +170,8 @@ def __get_errors(params):
 
             rules_errors = []
             for rule in param.rules:
-                rules_errors.extend(rule.validate(value))
+                value, rule_errors = rule.validate(value)
+                rules_errors.extend(rule_errors)
 
             if rules_errors:
                 errors[param_name] = rules_errors
@@ -167,6 +179,22 @@ def __get_errors(params):
                 valid_values.append(value)
 
     return errors, valid_values
+
+
+def __all_params_are_of_type(params, param_type: str) -> bool:
+    for param in params:
+        if param.param_type != param_type:
+            return False
+    return True
+
+
+def __check_if_too_much_params_in_request(params):
+    expected = {param.name for param in params}
+    actual = request.get_json().keys()
+    unexpected_keys = {key for key in actual if key not in expected}
+
+    if unexpected_keys:
+        raise TooMuchArguments(f'Got unexpected keys: {unexpected_keys}')
 
 
 def __get_request_value(value_type, name):
@@ -186,5 +214,7 @@ def __get_request_value(value_type, name):
     elif value_type == JSON:
         json_ = request.get_json()
         return json_.get(name) if json_ else json_
+    elif value_type == HEADER:
+        return request.headers.get(name)  # None is fine here
     else:
         raise UndefinedParamType('Undefined param type %s' % name)
