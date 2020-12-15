@@ -43,6 +43,8 @@ $ pip install flask_request_validator
 
 `Enum('value1', 'value2')` - describes allowed values
 
+`NotEmpty` - checks that value is not empty. Works for `str` values and removes leading/trailing whitespace automatically.
+
 `AbstractRule` - provide possibility to write custom rule
 
 **Supported types for values**:
