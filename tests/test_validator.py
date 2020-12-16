@@ -334,7 +334,7 @@ class TestRestfull(TestCase):
                 content_type='application/json'
             )
             self.assertEqual(
-                json.loads(data.get_data(as_text=True), encoding='utf-8'),
+                json.loads(data.get_data(as_text=True)),
                 [
                     [key, key.__class__.__name__],
                     [sure, sure.__class__.__name__],

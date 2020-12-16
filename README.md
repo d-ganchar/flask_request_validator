@@ -12,7 +12,8 @@ Key features
 - Type conversion
 - Extensible
 - Supports [Flask-RESTful](https://flask-restful.readthedocs.io/en/latest/)
-- Supports Python 2.7 / 3.5 / 3.6 / 3.7
+- Supports Python 3.6 / 3.7 / 3.8 / 3.9
+- Python 2.7 / 3.5 supported up to version 3.0
 
 ### How to install:
 
@@ -22,7 +23,7 @@ $ pip install flask_request_validator
 
 ### How to use:
 
-**There are 4 types of request parameters**:
+**List of request parameters**:
 
 `GET` - parameter stored in flask.request.args
 
@@ -32,8 +33,10 @@ $ pip install flask_request_validator
 
 `PATH` - parameter stored in flask.request.view_args. In this case is part of route
 
+`HEADER` - parameter stored header
 
-**Here a list of possible rules for validation**:
+
+**List of possible rules for validation**:
 
 `Pattern(r'^[a-z-_.]{8,10}$')` - value checks at regexp. Works only for `str` values.
 
@@ -83,7 +86,7 @@ Param description:
 ```
 Param(
     param_name_in_request, # str
-    request_param_type, # where stored param(GET, FORM, JSON, PATH)
+    request_param_type, # where stored param(GET, FORM, JSON, PATH, HEADER)
     type_of_value, # str, bool, int, float, dict, list - which type we want to have
     required_or_no, bool - True by default
     default_value, None by default. You can use lambda for this arg - default=lambda: ['test']
