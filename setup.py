@@ -4,12 +4,12 @@ from os import path
 
 current_path = path.abspath(path.dirname(__file__))
 
-with io.open("README.rst", "rt", encoding="utf8") as f:
+with io.open('README.rst', 'rt', encoding='utf8') as f:
     long_description = f.read()
 
 setup(
     name='flask_request_validator',
-    version='2.1.2',
+    version='3.0.0',
     description='Flask request data validation',
     long_description=long_description,
     url='https://github.com/d-ganchar/flask_request_validator',
