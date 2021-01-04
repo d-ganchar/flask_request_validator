@@ -146,8 +146,8 @@ def kwargs_are_okay(**kwargs):
     Param('city', JSON, str, rules=[Enum('Minsk')]),
     return_as_kwargs=False,
 )
-def kwargs_are_not_okay(a, b, c, d):
-    return flask.jsonify({'a': a, 'b': b, 'c': c, 'd': d})
+def kwargs_are_not_okay(a, b, c, d, **kwargs):
+    return flask.jsonify({'a': a, 'b': b, 'c': c, 'd': d, **kwargs})
 
 
 @app.route('/header', methods=['GET'])
