@@ -76,7 +76,7 @@ class Param(object):
         return value
 
 
-def validate_params(*params):
+def validate_params(*params: Param, return_as_kwargs: bool = True):
     """
     Validate route of request. Example:
 
@@ -109,10 +109,13 @@ def validate_params(*params):
 
             spec = inspect.getfullargspec(func)
 
-            if spec.varkw == 'kwargs':
-                return func(**{v.name: endpoint_args[i] for i, v in enumerate(params) if endpoint_args[i] is not None})
+            kwargs = {k: v for k, v in kwargs.items() if k not in [x.name for x in params]}
 
-            return func(*endpoint_args)
+            if spec.varkw == 'kwargs' and return_as_kwargs:
+                endpoint_kw = {v.name: endpoint_args[i] for i, v in enumerate(params) if endpoint_args[i] is not None}
+                return func(**{**kwargs, **endpoint_kw})
+
+            return func(*endpoint_args, **kwargs)
 
         return wrapper
 

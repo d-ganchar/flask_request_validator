@@ -25,6 +25,12 @@ test_api = Api(app, '/v1')
 app.testing = True
 
 
+def decorator_generate_kwargs(func):
+    def wrapper(*args):
+        return func(*args, **{'verbose': True, 'num': 42})
+    return wrapper
+
+
 @test_api.resource('/resource')
 class TestApi(Resource):
 
@@ -132,6 +138,18 @@ def kwargs_are_okay(**kwargs):
     return flask.jsonify(kwargs)
 
 
+@app.route('/no_kwargs', methods=['GET'])
+@validate_params(
+    Param('first_name', JSON, str, rules=[MaxLength(4)]),
+    Param('last_name', JSON, str, rules=[MinLength(4)]),
+    Param('street', JSON, str, rules=[NotEmpty()]),
+    Param('city', JSON, str, rules=[Enum('Minsk')]),
+    return_as_kwargs=False,
+)
+def kwargs_are_not_okay(a, b, c, d):
+    return flask.jsonify({'a': a, 'b': b, 'c': c, 'd': d})
+
+
 @app.route('/header', methods=['GET'])
 @validate_params(
     Param('username', HEADER, str, rules=[MaxLength(4)]),
@@ -139,6 +157,15 @@ def kwargs_are_okay(**kwargs):
 )
 def before_request(username, password):
     return flask.jsonify({username: password})
+
+
+@app.route('/pass_kwargs', methods=['GET'])
+@decorator_generate_kwargs
+@validate_params(
+    Param('value', JSON, str),
+)
+def take_kwargs_that_validator_shall_ignore(value: str, num: int, verbose: bool):
+    return flask.jsonify({'value': value, 'num': num, 'verbose': verbose})
 
 
 class TestValidator(TestCase):
@@ -250,6 +277,26 @@ class TestValidator(TestCase):
             self.assertEqual(200, res.status_code)
             data['street'] = 'Wallstreet'
             self.assertEqual(data, res.json)
+
+    def test_no_kwargs(self):
+        with app.test_client() as client:
+            data = {
+                'first_name': 'Egon',
+                'last_name': 'Olsen',
+                'street': '    Wallstreet         ',
+                'city': 'Minsk',
+            }
+            res = client.get('/no_kwargs', data=json.dumps(data), content_type='application/json')
+            self.assertEqual(200, res.status_code)
+            data['street'] = 'Wallstreet'
+            self.assertEqual(['a', 'b', 'c', 'd'], list(res.json.keys()))
+            self.assertEqual(list(data.values()), list(res.json.values()))
+
+    def test_pass_kwargs(self):
+        with app.test_client() as client:
+            res = client.get('/pass_kwargs', data=json.dumps({'value': 'hello'}), content_type='application/json')
+            self.assertEqual(200, res.status_code)
+            self.assertEqual({'value': 'hello', 'num': 42, 'verbose': True}, res.json)
 
     def test_not_empty(self):
         with app.test_client() as client:
