@@ -1,6 +1,7 @@
 import types
 import inspect
 from functools import wraps
+from typing import Tuple
 
 from flask import request
 
@@ -122,7 +123,7 @@ def validate_params(*params: Param, return_as_kwargs: bool = True):
     return validate_request
 
 
-def __get_errors(params):
+def __get_errors(params: Tuple[Param, ...]):
     """
     Returns errors of validation and valid values
     :param tuple params: (Param(), Param(), ...)

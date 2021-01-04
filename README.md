@@ -87,12 +87,12 @@ Param description:
 
 ```
 Param(
-    param_name_in_request, # str
-    request_param_type, # where stored param(GET, FORM, JSON, PATH, HEADER)
-    type_of_value, # str, bool, int, float, dict, list - which type we want to have
-    required_or_no, bool - True by default
-    default_value, None by default. You can use lambda for this arg - default=lambda: ['test']
-    list_of_rules
+    name: the name of the request parameter
+    param_type: where stored param(GET, FORM, JSON, PATH, HEADER)
+    value_type: str, bool, int, float, dict, list - which type we want to have
+    required: a bool that indicates wheter a value is required, True by default
+    default: the default value, None by default. You can use lambda for this arg - default=lambda: ['test']
+    rule: the list of rules (see class Rule)
 )
 
 ```
