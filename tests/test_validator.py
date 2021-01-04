@@ -15,7 +15,7 @@ from flask_request_validator import (
     Pattern,
     validate_params
 )
-from flask_request_validator.exceptions import InvalidRequest, TooMuchArguments, InvalidHeader
+from flask_request_validator.exceptions import InvalidRequest, TooManyArguments, InvalidHeader
 from flask_request_validator.rules import MaxLength, MinLength, NotEmpty
 from flask_request_validator.validator import PATH, FORM, JSON, HEADER
 
@@ -262,7 +262,7 @@ class TestValidator(TestCase):
             with self.assertRaises(expected_exception=InvalidRequest):
                 client.get('/kwargs', data=json.dumps(data), content_type='application/json')
 
-    def test_too_much_arguments(self):
+    def test_too_many_arguments(self):
         with app.test_client() as client:
             data = {
                 'first_name': 'Egon',
@@ -271,7 +271,7 @@ class TestValidator(TestCase):
                 'city': 'Minsk',
                 'an_unhandled_arg': 'this is too much! I will raise an TooMuchArgument exception!'
             }
-            with self.assertRaises(expected_exception=TooMuchArguments):
+            with self.assertRaises(expected_exception=TooManyArguments):
                 client.get('/kwargs', data=json.dumps(data), content_type='application/json')
 
 

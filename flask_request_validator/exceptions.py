@@ -45,7 +45,7 @@ class InvalidHeader(Exception):
         return 'Invalid request header. ' + json.dumps(self.errors)
 
 
-class TooMuchArguments(Exception):
+class TooManyArguments(Exception):
     """
     Got more arguments in request then expected
     """

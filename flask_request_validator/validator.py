@@ -8,7 +8,7 @@ from .exceptions import (
     NotAllowedType,
     UndefinedParamType,
     InvalidRequest,
-    TooMuchArguments,
+    TooManyArguments,
     InvalidHeader
 )
 from .rules import CompositeRule, ALLOWED_TYPES
@@ -102,7 +102,7 @@ def validate_params(*params):
                     raise InvalidRequest(errors)
 
             if __all_params_are_of_type(params, JSON):
-                __check_if_too_much_params_in_request(params)
+                __check_if_too_many_params_in_request(params)
 
             if args:
                 endpoint_args = (args[0], ) + tuple(endpoint_args)
@@ -188,13 +188,13 @@ def __all_params_are_of_type(params, param_type: str) -> bool:
     return True
 
 
-def __check_if_too_much_params_in_request(params):
+def __check_if_too_many_params_in_request(params):
     expected = {param.name for param in params}
     actual = request.get_json().keys()
     unexpected_keys = {key for key in actual if key not in expected}
 
     if unexpected_keys:
-        raise TooMuchArguments(f'Got unexpected keys: {unexpected_keys}')
+        raise TooManyArguments(f'Got unexpected keys: {unexpected_keys}')
 
 
 def __get_request_value(value_type, name):
