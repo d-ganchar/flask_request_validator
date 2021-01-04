@@ -216,7 +216,7 @@ def __get_request_value(value_type, name):
         return request.view_args.get(name)
     elif value_type == JSON:
         json_ = request.get_json()
-        return json_.get(name) if json_ else json_
+        return json_.get(name) if json_ else None
     elif value_type == HEADER:
         return request.headers.get(name)  # None is fine here
     else:

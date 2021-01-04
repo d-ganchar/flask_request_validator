@@ -168,6 +168,14 @@ def take_kwargs_that_validator_shall_ignore(value: str, num: int, verbose: bool)
     return flask.jsonify({'value': value, 'num': num, 'verbose': verbose})
 
 
+@app.route('/issue46', methods=['GET'])
+@validate_params(
+    Param('my_string', JSON, str, required=False, default='my_default'),
+)
+def issue_46(s: str):
+    return flask.jsonify({'my_string': s})
+
+
 class TestValidator(TestCase):
 
     def test_invalid_route(self):
@@ -320,6 +328,12 @@ class TestValidator(TestCase):
             }
             with self.assertRaises(expected_exception=TooManyArguments):
                 client.get('/kwargs', data=json.dumps(data), content_type='application/json')
+
+    def test_default_string(self):
+        with app.test_client() as client:
+            res = client.get('/issue46', data=json.dumps({}), content_type='application/json')
+            self.assertEqual(200, res.status_code)
+            self.assertEqual('my_default', res.json['my_string'])
 
 
 class TestParam(TestCase):
