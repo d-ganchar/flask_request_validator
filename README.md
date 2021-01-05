@@ -44,9 +44,17 @@ $ pip install flask_request_validator
 
 `MinLength(6)` - value checks at min length. Works for `str` and `list` values.
 
+`Max(6)` - checks that value is less or equal. Works for `int` and `float`.
+
+`Min(6)` - checks that value is greater or equal. Works for `int` and `float`.
+
 `Enum('value1', 'value2')` - describes allowed values
 
 `NotEmpty` - checks that value is not empty. Works for `str` values and removes leading/trailing whitespace automatically.
+
+`IsDatetimeIsoFormat` - checks that value is a `datetime` in ISO format and converts it to `datetime`.
+
+`IsEmail` - checks that value is a valid email address.
 
 `AbstractRule` - provide possibility to write custom rule
 
