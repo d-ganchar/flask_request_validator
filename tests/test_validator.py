@@ -60,6 +60,7 @@ class TestApi(Resource):
             mimetype='application/json'
         )
 
+
 type_composite = CompositeRule(Enum('type1', 'type2'))
 
 
