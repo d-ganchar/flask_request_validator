@@ -52,3 +52,7 @@ class TooManyArguments(Exception):
 
     def __init__(self, msg):
         self.message = msg
+
+
+TooMuchArguments = TooManyArguments
+"""backward compatibility for version 3.0.0"""
