@@ -3,8 +3,12 @@ from .rules import (
     AbstractRule,
     CompositeRule,
     Enum,
-    NotEmpty,
+    IsDatetimeIsoFormat,
+    IsEmail,
     MaxLength,
     MinLength,
+    Max,
+    Min,
+    NotEmpty,
     Pattern,
 )
