@@ -94,4 +94,5 @@ class NotEmpty(AbstractRule):
 
         if value == '':
             errors.append('Got empty String')
+
         return value, errors
