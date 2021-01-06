@@ -15,8 +15,14 @@ class TestRules(unittest.TestCase):
         rules = [Min(1), Max(2)]
         rule = CompositeRule(*rules)
 
-        for value in rule:
-            self.assertIn(value, rules)
+        for r in rule:
+            self.assertIn(r, rules)
+
+        for value in [1.0, 1, 1.0002, 1.2, 1.5, 1.9999, 2, 2.0]:
+            self.assertEqual((value, []), rule.validate(value))
+
+        for value in [-42, -1, 0, 0.999, 2.00001, 2.4, 3.8, 46868841635]:
+            self.assertEqual(1, len(rule.validate(value)[1]))
 
     def test_pattern_rule(self) -> None:
         rule = Pattern(r'^[0-9]*$')

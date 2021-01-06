@@ -25,7 +25,7 @@ class AbstractRule(ABC):
         pass
 
 
-class CompositeRule:
+class CompositeRule(AbstractRule):
 
     def __init__(self, *rules: AbstractRule) -> None:
         self._rules = rules
@@ -33,6 +33,15 @@ class CompositeRule:
     def __iter__(self):
         for rule in self._rules:
             yield rule
+
+    @overrides(AbstractRule)
+    def validate(self, value: Any) -> Tuple[Any, List[str]]:
+        errors = []
+
+        for rule in self._rules:
+            errors.extend(rule.validate(value=value)[1])
+
+        return value, errors
 
 
 class Pattern(AbstractRule):
