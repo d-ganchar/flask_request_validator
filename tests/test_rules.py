@@ -1,6 +1,7 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 
+from flask_request_validator.date_time_iso_format import datetime_from_iso_format
 from flask_request_validator.rules import IsEmail, IsDatetimeIsoFormat, NotEmpty, Max, Min, AbstractRule, MinLength, \
     MaxLength, Enum, Pattern, CompositeRule
 
@@ -110,11 +111,20 @@ class TestRules(unittest.TestCase):
         rule = IsDatetimeIsoFormat()
         now = datetime.now()
 
-        self.assertEqual((now, []), rule.validate(now.isoformat()))
-        self.assertEqual((datetime.combine(now, datetime.min.time()), []), rule.validate(now.date().isoformat()))
+        actual, errors = rule.validate(now.isoformat())
+        self.assertTrue(abs(now - actual) < timedelta(milliseconds=1))
+        self.assertEqual([], errors)
 
         for value in ['invalid', 42, '12.12.2020']:
             self.assertEqual(1, len(rule.validate(value)[1]))
+
+    def test_datetime_iso_format_python_3_6(self) -> None:
+        now = datetime.now()
+        self.assertTrue(abs(now - datetime_from_iso_format(now.isoformat())) < timedelta(milliseconds=1))
+
+        for value in ['invalid', 42, '12.12.2020']:
+            with self.assertRaises(expected_exception=(AttributeError, ValueError)):
+                datetime_from_iso_format(value=value)
 
     def test_is_email_rule(self) -> None:
         rule = IsEmail()

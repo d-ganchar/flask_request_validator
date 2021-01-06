@@ -1,8 +1,10 @@
 import re
+import sys
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Tuple, List, Any, Union, Iterable
 
+from .date_time_iso_format import datetime_from_iso_format
 from .decorators import overrides
 
 ALLOWED_TYPES = (str, bool, int, float, dict, list)
@@ -176,8 +178,11 @@ class IsDatetimeIsoFormat(AbstractRule):
         errors = []
 
         try:
-            value = datetime.fromisoformat(value)
-        except (TypeError, ValueError):
+            if sys.version_info >= (3, 7):
+                value = datetime.fromisoformat(value)
+            else:
+                value = datetime_from_iso_format(value)
+        except (TypeError, ValueError, AttributeError):
             errors.append(f'invalid value: {value} is not a datetime in ISO format')
 
         return value, errors
