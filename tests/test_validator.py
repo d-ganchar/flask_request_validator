@@ -15,7 +15,7 @@ from flask_request_validator import (
     Pattern,
     validate_params
 )
-from flask_request_validator.exceptions import InvalidRequest, TooMuchArguments, InvalidHeader
+from flask_request_validator.exceptions import InvalidRequest, TooManyArguments, InvalidHeader, TooMuchArguments
 from flask_request_validator.rules import MaxLength, MinLength, NotEmpty
 from flask_request_validator.validator import PATH, FORM, JSON, HEADER
 
@@ -23,6 +23,12 @@ app = flask.Flask(__name__)
 test_api = Api(app, '/v1')
 
 app.testing = True
+
+
+def decorator_generate_kwargs(func):
+    def wrapper(*args):
+        return func(*args, **{'verbose': True, 'num': 42})
+    return wrapper
 
 
 @test_api.resource('/resource')
@@ -53,6 +59,7 @@ class TestApi(Resource):
             }),
             mimetype='application/json'
         )
+
 
 type_composite = CompositeRule(Enum('type1', 'type2'))
 
@@ -132,6 +139,18 @@ def kwargs_are_okay(**kwargs):
     return flask.jsonify(kwargs)
 
 
+@app.route('/no_kwargs', methods=['GET'])
+@validate_params(
+    Param('first_name', JSON, str, rules=[MaxLength(4)]),
+    Param('last_name', JSON, str, rules=[MinLength(4)]),
+    Param('street', JSON, str, rules=[NotEmpty()]),
+    Param('city', JSON, str, rules=[Enum('Minsk')]),
+    return_as_kwargs=False,
+)
+def kwargs_are_not_okay(a, b, c, d, **kwargs):
+    return flask.jsonify({'a': a, 'b': b, 'c': c, 'd': d, **kwargs})
+
+
 @app.route('/header', methods=['GET'])
 @validate_params(
     Param('username', HEADER, str, rules=[MaxLength(4)]),
@@ -139,6 +158,23 @@ def kwargs_are_okay(**kwargs):
 )
 def before_request(username, password):
     return flask.jsonify({username: password})
+
+
+@app.route('/pass_kwargs', methods=['GET'])
+@decorator_generate_kwargs
+@validate_params(
+    Param('value', JSON, str),
+)
+def take_kwargs_that_validator_shall_ignore(value: str, num: int, verbose: bool):
+    return flask.jsonify({'value': value, 'num': num, 'verbose': verbose})
+
+
+@app.route('/issue46', methods=['GET'])
+@validate_params(
+    Param('my_string', JSON, str, required=False, default='my_default'),
+)
+def issue_46(s: str):
+    return flask.jsonify({'my_string': s})
 
 
 class TestValidator(TestCase):
@@ -251,6 +287,26 @@ class TestValidator(TestCase):
             data['street'] = 'Wallstreet'
             self.assertEqual(data, res.json)
 
+    def test_no_kwargs(self):
+        with app.test_client() as client:
+            data = {
+                'first_name': 'Egon',
+                'last_name': 'Olsen',
+                'street': '    Wallstreet         ',
+                'city': 'Minsk',
+            }
+            res = client.get('/no_kwargs', data=json.dumps(data), content_type='application/json')
+            self.assertEqual(200, res.status_code)
+            data['street'] = 'Wallstreet'
+            self.assertEqual(['a', 'b', 'c', 'd'], list(res.json.keys()))
+            self.assertEqual(list(data.values()), list(res.json.values()))
+
+    def test_pass_kwargs(self):
+        with app.test_client() as client:
+            res = client.get('/pass_kwargs', data=json.dumps({'value': 'hello'}), content_type='application/json')
+            self.assertEqual(200, res.status_code)
+            self.assertEqual({'value': 'hello', 'num': 42, 'verbose': True}, res.json)
+
     def test_not_empty(self):
         with app.test_client() as client:
             data = {
@@ -262,7 +318,7 @@ class TestValidator(TestCase):
             with self.assertRaises(expected_exception=InvalidRequest):
                 client.get('/kwargs', data=json.dumps(data), content_type='application/json')
 
-    def test_too_much_arguments(self):
+    def test_too_many_arguments(self):
         with app.test_client() as client:
             data = {
                 'first_name': 'Egon',
@@ -271,8 +327,18 @@ class TestValidator(TestCase):
                 'city': 'Minsk',
                 'an_unhandled_arg': 'this is too much! I will raise an TooMuchArgument exception!'
             }
+            with self.assertRaises(expected_exception=TooManyArguments):
+                client.get('/kwargs', data=json.dumps(data), content_type='application/json')
+
+            # test backward compatibility
             with self.assertRaises(expected_exception=TooMuchArguments):
                 client.get('/kwargs', data=json.dumps(data), content_type='application/json')
+
+    def test_default_string(self):
+        with app.test_client() as client:
+            res = client.get('/issue46', data=json.dumps({}), content_type='application/json')
+            self.assertEqual(200, res.status_code)
+            self.assertEqual('my_default', res.json['my_string'])
 
 
 class TestParam(TestCase):

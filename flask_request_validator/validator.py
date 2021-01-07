@@ -1,6 +1,7 @@
 import types
 import inspect
 from functools import wraps
+from typing import Tuple
 
 from flask import request
 
@@ -8,7 +9,7 @@ from .exceptions import (
     NotAllowedType,
     UndefinedParamType,
     InvalidRequest,
-    TooMuchArguments,
+    TooManyArguments,
     InvalidHeader
 )
 from .rules import CompositeRule, ALLOWED_TYPES
@@ -76,7 +77,7 @@ class Param(object):
         return value
 
 
-def validate_params(*params):
+def validate_params(*params: Param, return_as_kwargs: bool = True):
     """
     Validate route of request. Example:
 
@@ -102,24 +103,27 @@ def validate_params(*params):
                     raise InvalidRequest(errors)
 
             if __all_params_are_of_type(params, JSON):
-                __check_if_too_much_params_in_request(params)
+                __check_if_too_many_params_in_request(params)
 
             if args:
                 endpoint_args = (args[0], ) + tuple(endpoint_args)
 
             spec = inspect.getfullargspec(func)
 
-            if spec.varkw == 'kwargs':
-                return func(**{v.name: endpoint_args[i] for i, v in enumerate(params) if endpoint_args[i] is not None})
+            kwargs = {k: v for k, v in kwargs.items() if k not in [x.name for x in params]}
 
-            return func(*endpoint_args)
+            if spec.varkw == 'kwargs' and return_as_kwargs:
+                endpoint_kw = {v.name: endpoint_args[i] for i, v in enumerate(params) if endpoint_args[i] is not None}
+                return func(**{**kwargs, **endpoint_kw})
+
+            return func(*endpoint_args, **kwargs)
 
         return wrapper
 
     return validate_request
 
 
-def __get_errors(params):
+def __get_errors(params: Tuple[Param, ...]):
     """
     Returns errors of validation and valid values
     :param tuple params: (Param(), Param(), ...)
@@ -188,13 +192,13 @@ def __all_params_are_of_type(params, param_type: str) -> bool:
     return True
 
 
-def __check_if_too_much_params_in_request(params):
+def __check_if_too_many_params_in_request(params):
     expected = {param.name for param in params}
     actual = request.get_json().keys()
     unexpected_keys = {key for key in actual if key not in expected}
 
     if unexpected_keys:
-        raise TooMuchArguments(f'Got unexpected keys: {unexpected_keys}')
+        raise TooManyArguments(f'Got unexpected keys: {unexpected_keys}')
 
 
 def __get_request_value(value_type, name):
@@ -213,7 +217,7 @@ def __get_request_value(value_type, name):
         return request.view_args.get(name)
     elif value_type == JSON:
         json_ = request.get_json()
-        return json_.get(name) if json_ else json_
+        return json_.get(name) if json_ else None
     elif value_type == HEADER:
         return request.headers.get(name)  # None is fine here
     else:
