@@ -74,14 +74,7 @@ Here an example of route with validator:
 
 
 ```
-from flask_request_validator import (
-    PATH,
-    FORM,
-    Param,
-    Pattern,
-    validate_params
-)
-
+from flask_request_validator import *
 
 @app.route('/<string:uuid>', methods=['POST'])
 @validate_params(
@@ -89,8 +82,8 @@ from flask_request_validator import (
     Param('price', FORM, float),
 )
 def route(uuid, price):
-    print uuid # str
-    print price # float
+    print(uuid)  # str
+    print(price) # float
 ```
 
 Param description:
@@ -104,7 +97,6 @@ Param(
     default: the default value, None by default. You can use lambda for this arg - default=lambda: ['test']
     rule: the list of rules (see class Rule)
 )
-
 ```
 
 One more example(request `/orders?finished=True&amount=100`):
@@ -116,23 +108,17 @@ One more example(request `/orders?finished=True&amount=100`):
     Param('amount', GET, int, required=False),
 )
 def route(finished, amount):
-    print finished # True (bool)
-    print amount # 100 (int)
-
+    print(finished) # True (bool)
+    print(amount)   # 100 (int)
 ```
 
 Also you can create your custom rule. Here is a small example:
 
 ```
-from flask_request_validator import AbstractRule
-
-
 def reserved_values():
     return ['today', 'tomorrow']
 
-
 class MyRule(AbstractRule):
-
     def validate(self, value):
         errors = []
         if value in reserved_values():
@@ -141,7 +127,7 @@ class MyRule(AbstractRule):
         # other errors...
         errors.append('One more error')
 
-        return errors
+        return value, errors
 
 
 @app.route('/')
@@ -161,23 +147,15 @@ InvalidRequest: Invalid request data. {"day": ["Value today is reserved", "One m
 Also you can combine rules(`CompositeRule`) for frequent using:
 
 ```
-from flask_request_validator import CompositeRule
-
-
-name_rule = CompositeRule(Pattern(r'^[a-z-_.]{8,10}$'), one_more_rule, your_custom_rule, etc...)
-
+email_rules = CompositeRule(IsEmail(), MinLength(10), MaxLength(20))
+params = [
+    Param('email', GET, str, rules=email_rules),
+    Param('streets', GET, list), # should be sent as string `street1,stree2`
+    Param('meta', GET, dict),    # should be sent as string `key1:val1,key2:val2`
+)
 
 @app.route('/person')
-@validate_params(
-    Param('first_name', GET, str, rules=name_rule),
-    # other params is just example
-    Param('streets', GET, list), should be sent as string `street1,stree2`
-    Param('city', GET, str, rules=[Enum('Minsk')]),
-    Param('meta', GET, dict), # should be sent as string `key1:val1,key2:val2`
-)
-def route_one(first_name, streets, city, meta):
-    # print(first_name) (str)
-    # print(streets) (list)
-    # print(city) (str)
-    # print(meta) (dict)
+@validate_params(*params)
+def route_one(**kwargs):
+    print(kwargs)
 ```
