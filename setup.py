@@ -9,7 +9,7 @@ with io.open('README.rst', 'rt', encoding='utf8') as f:
 
 setup(
     name='flask_request_validator',
-    version='3.0.1',
+    version='3.0.0',
     description='Flask request data validation',
     long_description=long_description,
     url='https://github.com/d-ganchar/flask_request_validator',
@@ -19,7 +19,7 @@ setup(
     keywords='flask request validation',
     packages=['flask_request_validator'],
     install_requires=['flask'],
-    tests_require=['nose'],
+    tests_require=['nose==1.3.7', 'nose-parameterized==0.6.0'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Framework :: Flask',

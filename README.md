@@ -15,6 +15,7 @@ Key features
 - Type conversion
 - Extensible
 - Supports [Flask-RESTful](https://flask-restful.readthedocs.io/en/latest/)
+- Removes leading/trailing whitespace automatically from strings
 - Python 2.7 / 3.5 supported up to version 3.0
 
 ### How to install:
@@ -52,9 +53,7 @@ $ pip install flask_request_validator
 
 `Enum('value1', 'value2')` - describes allowed values
 
-`NotEmpty` - checks that value is not empty. Works for `str` values and removes leading/trailing whitespace automatically.
-
-`IsDatetimeIsoFormat` - checks that value is a `datetime` in ISO format and converts it to `datetime`.
+`NotEmpty` - checks that value is not empty. Works for `str` values.
 
 `IsEmail` - checks that value is a valid email address.
 
@@ -163,21 +162,15 @@ Also you can combine rules(`CompositeRule`) for frequent using:
 ```
 from flask_request_validator import CompositeRule
 
-
-name_rule = CompositeRule(Pattern(r'^[a-z-_.]{8,10}$'), one_more_rule, your_custom_rule, etc...)
-
+email_rules = CompositeRule(IsEmail(), MinLength(10), MaxLength(20))
+params = [
+    Param('email', GET, str, rules=email_rules),
+    Param('streets', GET, list), should be sent as string `street1,stree2`
+    Param('meta', GET, dict), # should be sent as string `key1:val1,key2:val2`
+]
 
 @app.route('/person')
-@validate_params(
-    Param('first_name', GET, str, rules=name_rule),
-    # other params is just example
-    Param('streets', GET, list), should be sent as string `street1,stree2`
-    Param('city', GET, str, rules=[Enum('Minsk')]),
-    Param('meta', GET, dict), # should be sent as string `key1:val1,key2:val2`
-)
-def route_one(first_name, streets, city, meta):
-    # print(first_name) (str)
-    # print(streets) (list)
-    # print(city) (str)
-    # print(meta) (dict)
+@validate_params(*params)
+def route_one(**kwargs):
+    print(kwargs)
 ```

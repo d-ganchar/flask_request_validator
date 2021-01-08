@@ -1,19 +1,25 @@
 import json
 
 
-class UndefinedParamType(Exception):
+class RequestException(Exception):
+    """
+    flask_request_validator base exception
+    """
+
+
+class UndefinedParamType(RequestException):
     """
     Not allowed type of param(GET, POST )
     """
 
 
-class NotAllowedType(Exception):
+class NotAllowedType(RequestException):
     """
     Not allowed type. See: rules.ALLOWED_TYPES
     """
 
 
-class InvalidRequest(Exception):
+class InvalidRequest(RequestException):
     """
     GET or POST data is invalid
     """
@@ -29,30 +35,16 @@ class InvalidRequest(Exception):
         return 'Invalid request data. ' + json.dumps(self.errors)
 
 
-class InvalidHeader(Exception):
+class InvalidHeader(InvalidRequest):
     """
     request header data is invalid
     """
 
-    def __init__(self, errors):
-        """
-        :param dict errors: {'get': dict_with_errors, 'post': dict_with_errors}
-        """
-        self.errors = errors
-        self.message = str(self)
 
-    def __str__(self):
-        return 'Invalid request header. ' + json.dumps(self.errors)
-
-
-class TooManyArguments(Exception):
+class TooManyArguments(RequestException):
     """
     Got more arguments in request then expected
     """
 
     def __init__(self, msg):
         self.message = msg
-
-
-TooMuchArguments = TooManyArguments
-"""backward compatibility for version 3.0.0"""

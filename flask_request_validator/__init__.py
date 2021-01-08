@@ -3,7 +3,6 @@ from .rules import (
     AbstractRule,
     CompositeRule,
     Enum,
-    IsDatetimeIsoFormat,
     IsEmail,
     MaxLength,
     MinLength,
