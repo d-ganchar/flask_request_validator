@@ -15,7 +15,7 @@ from flask_request_validator import (
     Pattern,
     validate_params
 )
-from flask_request_validator.exceptions import InvalidRequest, TooManyArguments, InvalidHeader, TooMuchArguments
+from flask_request_validator.exceptions import InvalidRequest, TooManyArguments, InvalidHeader
 from flask_request_validator.rules import MaxLength, MinLength, NotEmpty
 from flask_request_validator.validator import PATH, FORM, JSON, HEADER
 
@@ -133,9 +133,6 @@ def invalid_route(first_name, last_name, street, city, uuid):
     Param('city', JSON, str, rules=[Enum('Minsk')]),
 )
 def kwargs_are_okay(**kwargs):
-    for key, value in kwargs.items():
-        print('key:', key, 'value:', value)
-
     return flask.jsonify(kwargs)
 
 
@@ -328,10 +325,6 @@ class TestValidator(TestCase):
                 'an_unhandled_arg': 'this is too much! I will raise an TooMuchArgument exception!'
             }
             with self.assertRaises(expected_exception=TooManyArguments):
-                client.get('/kwargs', data=json.dumps(data), content_type='application/json')
-
-            # test backward compatibility
-            with self.assertRaises(expected_exception=TooMuchArguments):
                 client.get('/kwargs', data=json.dumps(data), content_type='application/json')
 
     def test_default_string(self):

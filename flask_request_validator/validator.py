@@ -73,6 +73,8 @@ class Param(object):
 
         if self.value_type:
             value = self.value_type(value)
+            if isinstance(value, str):
+                value = value.strip()
 
         return value
 
@@ -174,7 +176,7 @@ def __get_errors(params: Tuple[Param, ...]):
 
             rules_errors = []
             for rule in param.rules:
-                value, rule_errors = rule.validate(value)
+                rule_errors = rule.validate(value)
                 rules_errors.extend(rule_errors)
 
             if rules_errors:
