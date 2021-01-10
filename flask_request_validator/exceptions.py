@@ -24,7 +24,7 @@ class InvalidRequest(RequestError):
     """
     GET or POST data is invalid
     """
-    def __init__(self, errors: Union[List, Dict]):
+    def __init__(self, errors: Union[Dict]):
         self.errors = errors
         self.message = str(self)
 
@@ -58,13 +58,25 @@ class TooManyArguments(RequestError):
 
 
 class NestedJsonError(RequestError):
-    def __init__(self, depth: List[str], errors: List[RequestError]):
+    def __init__(self, depth: List[str], errors: Dict[int, RequestError]):
         self.depth = depth
         self.errors = errors
 
 
+class JsonListItemTypeError(RequestError):
+    """
+    Raises when invalid type of list item.
+    Expected ['name'] but got [{'name': 'val'}] or [{'name': 'val'}] but got ['name']
+    """
+    def __init__(self, only_dict=True):
+        """
+        :param only_dict: str, int, float, bool types if False. see: JsonParam._check_list_item_type
+        """
+        self.only_dict = only_dict
+
+
 class RequiredJsonKeyError(RequestError):
-    def __init__(self, key: str) -> None:
+    def __init__(self, key: str):
         self.key = key
 
 
