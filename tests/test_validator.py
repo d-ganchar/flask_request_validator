@@ -5,7 +5,7 @@ from unittest import TestCase
 import flask
 from flask import Response
 from flask_restful import Resource, Api
-from nose_parameterized import parameterized
+from parameterized import parameterized
 
 from flask_request_validator import CompositeRule
 from flask_request_validator import (
@@ -450,3 +450,26 @@ class TestValidateHttpHeader(TestCase):
             }
             with self.assertRaises(expected_exception=InvalidHeader):
                 client.get('/header', headers=data)
+
+
+class TestNestedJson(TestCase):
+
+    def test_nested_json(self):
+        with app.test_client() as client:
+            client.post(
+                '/nested_json',
+                data=json.dumps({
+                    'country': 'Germany',
+                    'city': 'Dresden',
+                    'street': 'Rampische',
+                    'meta': {
+                        'buildings': {
+                            'warehouses': {
+                                'small': {'count': 100, },
+                                'large': 0,
+                            },
+                        },
+                    },
+                }),
+                content_type='application/json'
+            )

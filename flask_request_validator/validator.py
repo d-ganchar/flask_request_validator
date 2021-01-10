@@ -23,8 +23,7 @@ HEADER = 'HEADER'
 PARAM_TYPES = (GET, PATH, JSON, FORM, HEADER)
 
 
-class Param(object):
-
+class Param:
     def __init__(self, name, param_type, value_type=None,
                  required=True, default=None, rules=None):
         """
@@ -109,11 +108,14 @@ def validate_params(*params: Param, return_as_kwargs: bool = True):
                 endpoint_args = (args[0], ) + tuple(endpoint_args)
 
             spec = inspect.getfullargspec(func)
-
             kwargs = {k: v for k, v in kwargs.items() if k not in [x.name for x in params]}
 
             if spec.varkw == 'kwargs' and return_as_kwargs:
-                endpoint_kw = {v.name: endpoint_args[i] for i, v in enumerate(params) if endpoint_args[i] is not None}
+                endpoint_kw = {
+                    v.name: endpoint_args[i]
+                    for i, v in enumerate(params)
+                    if endpoint_args[i] is not None
+                }
                 return func(**{**kwargs, **endpoint_kw})
 
             return func(*endpoint_args, **kwargs)

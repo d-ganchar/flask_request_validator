@@ -1,27 +1,30 @@
 import json
+from typing import List, Union, Dict
 
 
-class UndefinedParamType(Exception):
+class RequestError(Exception):
+    """
+    Base flask_request_validator exception
+    """
+
+
+class UndefinedParamType(RequestError):
     """
     Not allowed type of param(GET, POST )
     """
 
 
-class NotAllowedType(Exception):
+class NotAllowedType(RequestError):
     """
     Not allowed type. See: rules.ALLOWED_TYPES
     """
 
 
-class InvalidRequest(Exception):
+class InvalidRequest(RequestError):
     """
     GET or POST data is invalid
     """
-
-    def __init__(self, errors):
-        """
-        :param dict errors: {'get': dict_with_errors, 'post': dict_with_errors}
-        """
+    def __init__(self, errors: Union[List, Dict]):
         self.errors = errors
         self.message = str(self)
 
@@ -29,7 +32,7 @@ class InvalidRequest(Exception):
         return 'Invalid request data. ' + json.dumps(self.errors)
 
 
-class InvalidHeader(Exception):
+class InvalidHeader(RequestError):
     """
     request header data is invalid
     """
@@ -45,13 +48,24 @@ class InvalidHeader(Exception):
         return 'Invalid request header. ' + json.dumps(self.errors)
 
 
-class TooManyArguments(Exception):
+class TooManyArguments(RequestError):
     """
     Got more arguments in request then expected
     """
 
     def __init__(self, msg):
         self.message = msg
+
+
+class NestedJsonError(RequestError):
+    def __init__(self, depth: List[str], errors: List[RequestError]):
+        self.depth = depth
+        self.errors = errors
+
+
+class RequiredJsonKeyError(RequestError):
+    def __init__(self, key: str) -> None:
+        self.key = key
 
 
 TooMuchArguments = TooManyArguments

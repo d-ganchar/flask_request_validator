@@ -1,8 +1,5 @@
 import io
 from setuptools import setup
-from os import path
-
-current_path = path.abspath(path.dirname(__file__))
 
 with io.open('README.rst', 'rt', encoding='utf8') as f:
     long_description = f.read()
@@ -19,7 +16,6 @@ setup(
     keywords='flask request validation',
     packages=['flask_request_validator'],
     install_requires=['flask'],
-    tests_require=['nose'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Framework :: Flask',

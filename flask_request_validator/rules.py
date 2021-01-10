@@ -18,7 +18,8 @@ class AbstractRule(ABC):
         """
             Validate value and return a tuple of value and a list of errors.
             The error list should be empty iff value is valid.
-            The returned value does not have to match the input value. Feel free to implement conversion logic.
+            The returned value does not have to match the input value.
+            Feel free to implement conversion logic.
 
             :param Any value:
             :return: tuple of value and errors
@@ -62,8 +63,7 @@ class Pattern(AbstractRule):
 
 
 class Enum(AbstractRule):
-
-    def __init__(self, *allowed_values: List[Any]) -> None:
+    def __init__(self, *allowed_values: Any) -> None:
         self._allowed_values = allowed_values
 
     @overrides(AbstractRule)
