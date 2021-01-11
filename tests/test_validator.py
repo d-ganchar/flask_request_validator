@@ -15,7 +15,8 @@ from flask_request_validator import (
     Pattern,
     validate_params
 )
-from flask_request_validator.exceptions import InvalidRequest, TooManyArguments, InvalidHeader, TooMuchArguments
+from flask_request_validator.exceptions import InvalidRequest, TooManyArguments, InvalidHeader, TooMuchArguments, \
+    ParameterNameIsNotUnique
 from flask_request_validator.rules import MaxLength, MinLength, NotEmpty
 from flask_request_validator.validator import PATH, FORM, JSON, HEADER
 
@@ -177,6 +178,24 @@ def issue_46(s: str):
     return flask.jsonify({'my_string': s})
 
 
+@app.route('/user/<string:user>', methods=['POST'])
+@validate_params(
+    Param('user', PATH, str),
+    Param('user', JSON, str),
+)
+def issue_55(**kwargs):
+    return flask.jsonify(kwargs)
+
+
+@app.route('/user/<string:user>', methods=['GET'])
+@validate_params(
+    Param('user', PATH, str),
+    Param('user', JSON, str),
+)
+def issue_55_2(user1, user2):
+    return flask.jsonify({user1: user2})
+
+
 class TestValidator(TestCase):
 
     def test_invalid_route(self):
@@ -300,6 +319,23 @@ class TestValidator(TestCase):
             data['street'] = 'Wallstreet'
             self.assertEqual(['a', 'b', 'c', 'd'], list(res.json.keys()))
             self.assertEqual(list(data.values()), list(res.json.values()))
+
+    def test_conflict_of_identical_parameter_names(self):
+        user1 = 'Harald'
+        user2 = 'Erwin'
+
+        with app.test_client() as client:
+            res = client.get(f'/user/{user1}', data=json.dumps({'user': user2}), content_type='application/json')
+            self.assertEqual(200, res.status_code)
+            self.assertEqual({user1: user2}, res.json)
+
+    def test_conflict_of_identical_parameter_names_kwargs(self):
+        user1 = 'Harald'
+        user2 = 'Erwin'
+
+        with app.test_client() as client:
+            with self.assertRaises(expected_exception=ParameterNameIsNotUnique):
+                client.post(f'/user/{user1}', data=json.dumps({'user': user2}), content_type='application/json')
 
     def test_pass_kwargs(self):
         with app.test_client() as client:

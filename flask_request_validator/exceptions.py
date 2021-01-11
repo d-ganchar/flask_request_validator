@@ -1,19 +1,25 @@
 import json
 
 
-class UndefinedParamType(Exception):
+class RequestError(Exception):
+    """
+    Base flask_request_validator exception
+    """
+
+
+class UndefinedParamType(RequestError):
     """
     Not allowed type of param(GET, POST )
     """
 
 
-class NotAllowedType(Exception):
+class NotAllowedType(RequestError):
     """
     Not allowed type. See: rules.ALLOWED_TYPES
     """
 
 
-class InvalidRequest(Exception):
+class InvalidRequest(RequestError):
     """
     GET or POST data is invalid
     """
@@ -29,7 +35,7 @@ class InvalidRequest(Exception):
         return 'Invalid request data. ' + json.dumps(self.errors)
 
 
-class InvalidHeader(Exception):
+class InvalidHeader(RequestError):
     """
     request header data is invalid
     """
@@ -45,7 +51,18 @@ class InvalidHeader(Exception):
         return 'Invalid request header. ' + json.dumps(self.errors)
 
 
-class TooManyArguments(Exception):
+class ParameterNameIsNotUnique(RequestError):
+    """
+    Got same parameter name more than once. Example:
+
+    @validate_params(
+        Param('user', PATH, str),
+        Param('user', JSON, str),
+    )
+    """
+
+
+class TooManyArguments(RequestError):
     """
     Got more arguments in request then expected
     """

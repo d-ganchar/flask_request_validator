@@ -10,7 +10,7 @@ from .exceptions import (
     UndefinedParamType,
     InvalidRequest,
     TooManyArguments,
-    InvalidHeader
+    InvalidHeader, ParameterNameIsNotUnique
 )
 from .rules import CompositeRule, ALLOWED_TYPES
 
@@ -113,6 +113,7 @@ def validate_params(*params: Param, return_as_kwargs: bool = True):
             kwargs = {k: v for k, v in kwargs.items() if k not in [x.name for x in params]}
 
             if spec.varkw == 'kwargs' and return_as_kwargs:
+                __check_that_param_names_are_unique(params)
                 endpoint_kw = {v.name: endpoint_args[i] for i, v in enumerate(params) if endpoint_args[i] is not None}
                 return func(**{**kwargs, **endpoint_kw})
 
@@ -199,6 +200,12 @@ def __check_if_too_many_params_in_request(params):
 
     if unexpected_keys:
         raise TooManyArguments(f'Got unexpected keys: {unexpected_keys}')
+
+
+def __check_that_param_names_are_unique(params):
+    names = [param.name for param in params]
+    if len(names) != len(set(names)):
+        raise ParameterNameIsNotUnique()
 
 
 def __get_request_value(value_type, name):
