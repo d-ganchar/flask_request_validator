@@ -1,3 +1,4 @@
+import json
 from unittest import TestCase
 from urllib.parse import urlencode
 
@@ -5,9 +6,9 @@ import flask
 from flask_restful import Api
 from parameterized import parameterized
 
-from flask_request_validator import GET, Param, ValidRequest, validate_params
+from flask_request_validator.error_formatter import demo_error_formatter
 from flask_request_validator.rules import *
-from flask_request_validator.validator import FORM, HEADER, PATH
+from flask_request_validator.validator import *
 
 _app = flask.Flask(__name__)
 _test_api = Api(_app, '/v1')
@@ -63,7 +64,7 @@ class TestRoutes(TestCase):
                 },
                 PATH: {
                     'key': [RulesError, [ValueEnumError]],
-                    'uuid': [RulesError, [ValuePatterError, ValueMinLengthError]],
+                    'uuid': [RulesError, [ValuePatternError, ValueMinLengthError]],
                 },
                 FORM: {
                     'flag': RequiredValueError,
@@ -260,24 +261,138 @@ class TestParam(TestCase):
         self.assertEqual(param.value_to_type(value), expected)
 
 
-# class TestNestedJson(TestCase):
-#
-#     def test_nested_json(self):
-#         with app.test_client() as client:
-#             client.post(
-#                 '/nested_json',
-#                 data=json.dumps({
-#                     'country': 'Germany',
-#                     'city': 'Dresden',
-#                     'street': 'Rampische',
-#                     'meta': {
-#                         'buildings': {
-#                             'warehouses': {
-#                                 'small': {'count': 100, },
-#                                 'large': 0,
-#                             },
-#                         },
-#                     },
-#                 }),
-#                 content_type='application/json'
-#             )
+_app2 = flask.Flask(__name__)
+
+
+@_app2.errorhandler(InvalidRequestError)
+def handler(e):
+    return flask.jsonify(demo_error_formatter(e)), 400
+
+
+@_app2.route('/', methods=['POST'])
+@validate_params(
+    JsonParam({
+        'island': [Pattern(r'^[a-z]{4,20}$')],
+        'iso': [IsDatetimeIsoFormat()],
+        'music': JsonParam({
+            'bands': JsonParam({
+                'name': [MinLength(2), MaxLength(20)],
+                'details': JsonParam({
+                    'description': [MinLength(5)],
+                    'status': [Enum('active', 'not_active'), ],
+                }),
+                'persons': JsonParam({'name': [MinLength(3), MaxLength(20)]}, as_list=True),
+            }, as_list=True, ),
+        }),
+    })
+)
+def home(valid: ValidRequest):
+    valid_json = valid.get_json()
+    valid_json['iso'] = valid_json['iso'].strftime('%Y-%m-%d')
+    return flask.jsonify({'json': valid.get_json()})
+
+
+class TestNestedJson(TestCase):
+    @parameterized.expand([
+        # invalid
+        (
+            {
+                'island': 'sm',
+                'iso': 'error',
+                'music': {
+                    'bands': [
+                        {
+                            'name': 'c',
+                            'details': {'description': 'sm', 'status': 'invalid2'},
+                            'persons': [{'name': 'ba'}, {'name': 'gs'}],
+                        },
+                        {
+                            'name': 'z',
+                            'details': {'description': 'zp', 'status': 'invalid3'},
+                            'persons': [{'name': 'nm'}, {'name': 'valid_name'}],
+                        },
+                    ],
+                }
+            },
+            [
+                {'errors': [
+                    {'depth': 'root|music|bands|details',
+                     'keys': {'description': ['minimum allowed length is 5'],
+                              'status': ["allowed values: (('active', 'not_active'),)"]}},
+                    {'depth': 'root|music|bands|persons',
+                     'keys': {'name': ['minimum allowed length is 3']}},
+                    {'depth': 'root|music|bands|details',
+                     'keys': {'description': ['minimum allowed length is 5'],
+                              'status': ["allowed values: (('active', 'not_active'),)"]}},
+                    {'depth': 'root|music|bands|persons',
+                     'keys': {'name': ['minimum allowed length is 3']}},
+                    {'depth': 'root|music|bands',
+                     'keys': {'name': ['minimum allowed length is 2']}},
+                    {'depth': 'root',
+                     'keys': {'island': ['value does not match pattern ^[a-z]{4,20}$'],
+                              'iso': ['invalid datetime iso format']}}
+                ],
+                    'message': 'invalid JSON parameters'
+                }
+            ],
+            '400 BAD REQUEST',
+        ),
+        # valid
+        (
+            {
+                'island': 'valid',
+                'iso': '2021-01-02T03:04:05.450686Z',
+                'music': {
+                    'bands': [
+                        {
+                            'name': 'Metallica',
+                            'details': {'details': 'Los Angeles, California, U.S.',
+                                        'status': 'active'},
+                            'persons': [
+                                {'name': 'James Hetfield'},
+                                {'name': 'Lars Ulrich'},
+                                {'name': 'Kirk Hammett'},
+                                {'name': 'Robert Trujillo'},
+                            ],
+                        },
+                        {
+                            'name': 'AC/DC',
+                            'details': {'details': 'Sydney, Australia', 'status': 'active'},
+                            'persons': [
+                                {'name': 'Angus Young'},
+                                {'name': 'Stevie Young'},
+                                {'name': 'Brian Johnson'},
+                                {'name': 'Phil Rudd'},
+                                {'name': 'Cliff Williams'},
+                            ],
+                        },
+                    ],
+                }
+            },
+            {
+                'json': {
+                    'island': 'valid', 'iso': '2021-01-02', 'music': {
+                        'bands': [
+                            {'details': {'details': 'Los Angeles, California, U.S.',
+                                         'status': 'active'},
+                             'name': 'Metallica',
+                             'persons': [{'name': 'James Hetfield'}, {'name': 'Lars Ulrich'},
+                                         {'name': 'Kirk Hammett'}, {'name': 'Robert Trujillo'}]},
+                            {'details': {'details': 'Sydney, Australia', 'status': 'active'},
+                             'name': 'AC/DC',
+                             'persons': [{'name': 'Angus Young'}, {'name': 'Stevie Young'},
+                                         {'name': 'Brian Johnson'}, {'name': 'Phil Rudd'},
+                                         {'name': 'Cliff Williams'}]
+                             }
+                        ]
+                    }
+                }
+            },
+            '200 OK'
+        ),
+    ])
+    def test_json_route_with_error_formatter(self, data, expected, status):
+        with _app2.test_client() as client:
+            response = client.post('/', data=json.dumps(data), content_type='application/json')
+            self.assertEqual(response.status, status)
+            self.assertEqual(response.json, expected)

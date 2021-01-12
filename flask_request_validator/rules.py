@@ -54,7 +54,7 @@ class Pattern(AbstractRule):
 
     def validate(self, value: str) -> str:
         if not self._pattern.search(string=str(value)):
-            raise ValuePatterError(self._pattern.pattern)
+            raise ValuePatternError(self._pattern.pattern)
         return value
 
 

@@ -46,9 +46,9 @@ class RuleError(RequestError):
     pass
 
 
-class ValuePatterError(RuleError):
+class ValuePatternError(RuleError):
     def __init__(self, pattern: str):
-        self.patter = pattern
+        self.pattern = pattern
 
 
 class ValueEnumError(RuleError):

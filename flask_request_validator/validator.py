@@ -15,7 +15,7 @@ PATH = 'PATH'
 FORM = 'FORM'
 HEADER = 'HEADER'
 _JSON = 'JSON'
-_PARAM_TYPES = (GET, PATH, FORM, HEADER)
+PARAM_TYPES = (GET, PATH, FORM, HEADER)
 _ALLOWED_TYPES = (str, bool, int, float, dict, list)
 
 
@@ -27,20 +27,23 @@ class _ValidRequest(ValidRequest):
         self._valid_data.setdefault(param_type, dict())
         self._valid_data[param_type][key] = value
 
+    def set_json(self, value: dict):
+        self._valid_data[_JSON] = value
+
     def get_form(self) -> Dict[str, Any]:
-        return self._valid_data[FORM]
+        return self._valid_data.get(FORM, dict())
 
     def get_headers(self) -> Dict[str, Any]:
-        return self._valid_data[HEADER]
+        return self._valid_data.get(HEADER, dict())
 
     def get_json(self) -> Dict[str, Any]:
-        return self._valid_data[_JSON]
+        return self._valid_data.get(_JSON, dict())
 
     def get_params(self) -> Dict[str, Any]:
-        return self._valid_data[GET]
+        return self._valid_data.get(GET, dict())
 
     def get_path_params(self) -> Dict[str, Any]:
-        return self._valid_data[PATH]
+        return self._valid_data.get(PATH, dict())
 
 
 class Param:
@@ -55,10 +58,10 @@ class Param:
         :param str param_type: type of request param (see: PARAM_TYPES)
         :raises: UndefinedParamType, NotAllowedType, WrongUsageError
         """
-        if param_type not in _PARAM_TYPES:
+        if param_type not in PARAM_TYPES:
             raise WrongUsageError(
                 'Param.name = "%s". '
-                'invalid Param.value_type "%s". allowed: %s' % (name, param_type, _PARAM_TYPES))
+                'invalid Param.value_type "%s". allowed: %s' % (name, param_type, PARAM_TYPES))
         if value_type and value_type not in _ALLOWED_TYPES:
             raise WrongUsageError(
                 'Param.name = "%s". '
@@ -136,7 +139,7 @@ class Param:
         return value
 
 
-def validate_params(*params: Param):
+def validate_params(*params: Union[JsonParam, Param]):
     """
     :raises InvalidHeadersError:
         When found invalid headers. Raises before other params validation
@@ -148,7 +151,7 @@ def validate_params(*params: Param):
         def wrapper(*args, **kwargs):
             header_params, other_params = (), ()
             for param in params:
-                if param.param_type == HEADER:
+                if isinstance(param, Param) and param.param_type == HEADER:
                     header_params += (param, )
                 else:
                     other_params += (param, )
@@ -169,11 +172,19 @@ def validate_params(*params: Param):
 
 
 def __get_request_errors(
-    params: Tuple[Param, ...],
+    params: Tuple[Union[Param, JsonParam], ...],
     valid: _ValidRequest
-) -> Tuple[_ValidRequest, Dict[str, Dict[str, RulesError]]]:
+) -> Tuple[_ValidRequest, Dict[str, Union[Dict[str, RulesError], List[JsonError]]]]:
     errors = dict()
     for param in params:
+        if isinstance(param, JsonParam):
+            value, json_errors = param.validate(request.get_json())
+            if json_errors:
+                errors[_JSON] = json_errors
+            else:
+                valid.set_json(value)
+            continue
+
         try:
             value = param.get_value_from_request()
             value = param.value_to_type(value)

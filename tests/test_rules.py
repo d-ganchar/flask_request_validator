@@ -41,8 +41,8 @@ class TestRules(unittest.TestCase):
     @parameterized.expand([
         (Pattern(r'^[0-9]*$'), '0', None, ),
         (Pattern(r'^[0-9]*$'), '23456', None, ),
-        (Pattern(r'^[0-9]*$'), 'god is an astronaut', ValuePatterError, ),
-        (Pattern(r'^[0-9]*$'), ' ', ValuePatterError, ),
+        (Pattern(r'^[0-9]*$'), 'god is an astronaut', ValuePatternError,),
+        (Pattern(r'^[0-9]*$'), ' ', ValuePatternError,),
     ])
     def test_pattern_rule(self, rule, value, exp) -> None:
         self._assert_rule_error(rule, value, exp)
