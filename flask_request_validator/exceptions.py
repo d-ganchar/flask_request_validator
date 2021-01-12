@@ -1,5 +1,4 @@
-import json
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Any
 
 
 class RequestError(Exception):
@@ -8,53 +7,8 @@ class RequestError(Exception):
     """
 
 
-class UndefinedParamType(RequestError):
-    """
-    Not allowed type of param(GET, POST )
-    """
-
-
-class NotAllowedType(RequestError):
-    """
-    Not allowed type. See: rules.ALLOWED_TYPES
-    """
-
-
-class InvalidRequest(RequestError):
-    """
-    GET or POST data is invalid
-    """
-    def __init__(self, errors: Union[Dict]):
-        self.errors = errors
-        self.message = str(self)
-
-    def __str__(self):
-        return 'Invalid request data. ' + json.dumps(self.errors)
-
-
-class InvalidHeader(RequestError):
-    """
-    request header data is invalid
-    """
-
-    def __init__(self, errors):
-        """
-        :param dict errors: {'get': dict_with_errors, 'post': dict_with_errors}
-        """
-        self.errors = errors
-        self.message = str(self)
-
-    def __str__(self):
-        return 'Invalid request header. ' + json.dumps(self.errors)
-
-
-class TooManyArguments(RequestError):
-    """
-    Got more arguments in request then expected
-    """
-
-    def __init__(self, msg):
-        self.message = msg
+class WrongUsageError(RequestError):
+    pass
 
 
 class NestedJsonError(RequestError):
@@ -75,10 +29,72 @@ class JsonListItemTypeError(RequestError):
         self.only_dict = only_dict
 
 
+class RequiredValueError(RequestError):
+    pass
+
+
 class RequiredJsonKeyError(RequestError):
     def __init__(self, key: str):
         self.key = key
 
 
-TooMuchArguments = TooManyArguments
-"""backward compatibility for version 3.0.0"""
+class TypeConversionError(RequestError):
+    pass
+
+
+class RuleError(RequestError):
+    pass
+
+
+class ValuePatterError(RuleError):
+    def __init__(self, pattern: str):
+        self.patter = pattern
+
+
+class ValueEnumError(RuleError):
+    def __init__(self, *args: Any):
+        self.allowed = args
+
+
+class ValueMaxLengthError(RuleError):
+    def __init__(self, length: int):
+        self.length = length
+
+
+class ValueMinLengthError(ValueMaxLengthError):
+    pass
+
+
+class ValueMaxError(RuleError):
+    def __init__(self, value: Union[int, float], include_boundary: bool):
+        self.value = value
+        self.include_boundary = include_boundary
+
+
+class ValueMinError(ValueMaxError):
+    pass
+
+
+class ValueEmptyError(RuleError):
+    pass
+
+
+class ValueDtIsoFormatError(RuleError):
+    pass
+
+
+class ValueEmailError(RuleError):
+    pass
+
+
+class RulesError(RequestError):
+    def __init__(self, *args: RuleError):
+        self.errors = args
+
+
+class InvalidRequestError(RequestError):
+    """
+    Errors by PARAM_TYPES
+    """
+    def __init__(self, errors: Dict[str, Dict[str, RulesError]]):
+        self.errors = errors

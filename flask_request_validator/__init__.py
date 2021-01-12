@@ -8,6 +8,7 @@ from .validator import (
     HEADER,
 )
 from .nested_json import JsonParam
+from .valid_request import ValidRequest
 from .rules import (
     AbstractRule,
     CompositeRule,
