@@ -11,7 +11,7 @@ class WrongUsageError(RequestError):
     pass
 
 
-class NestedJsonError(RequestError):
+class JsonError(RequestError):
     def __init__(self, depth: List[str], errors: Dict[int, RequestError]):
         self.depth = depth
         self.errors = errors
@@ -90,6 +90,11 @@ class ValueEmailError(RuleError):
 class RulesError(RequestError):
     def __init__(self, *args: RuleError):
         self.errors = args
+
+
+class InvalidHeadersError(RequestError):
+    def __init__(self, errors: Dict[str, RulesError]):
+        self.errors = errors
 
 
 class InvalidRequestError(RequestError):

@@ -4,7 +4,6 @@ from .validator import (
     GET,
     FORM,
     PATH,
-    JSON,
     HEADER,
 )
 from .nested_json import JsonParam

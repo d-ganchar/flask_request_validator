@@ -7,28 +7,24 @@ from flask import request
 from .exceptions import *
 from .rules import CompositeRule
 from .valid_request import ValidRequest
+from .nested_json import JsonParam
 
-# request params. see: __get_request_value()
+
 GET = 'GET'
 PATH = 'PATH'
 FORM = 'FORM'
-JSON = 'JSON'
 HEADER = 'HEADER'
-_PARAM_TYPES = (GET, PATH, JSON, FORM, HEADER)
+_JSON = 'JSON'
+_PARAM_TYPES = (GET, PATH, FORM, HEADER)
 _ALLOWED_TYPES = (str, bool, int, float, dict, list)
 
 
 class _ValidRequest(ValidRequest):
     def __init__(self) -> None:
-        self._valid_data = {
-            GET: {},
-            PATH: {},
-            JSON: {},
-            FORM: {},
-            HEADER: {},
-        }
+        self._valid_data = dict()
 
     def set_value(self, param_type: str, key: str, value: Any):
+        self._valid_data.setdefault(param_type, dict())
         self._valid_data[param_type][key] = value
 
     def get_form(self) -> Dict[str, Any]:
@@ -38,7 +34,7 @@ class _ValidRequest(ValidRequest):
         return self._valid_data[HEADER]
 
     def get_json(self) -> Dict[str, Any]:
-        return self._valid_data[JSON]
+        return self._valid_data[_JSON]
 
     def get_params(self) -> Dict[str, Any]:
         return self._valid_data[GET]
@@ -82,26 +78,24 @@ class Param:
         else:
             self.rules = CompositeRule(*rules or [])
 
-    def value_to_type(self, value):
+    def value_to_type(self, value: Any) -> Any:
         """
-        :param mixed value:
-        :return: mixed
+        :raises TypeConversionError:
         """
-        if self.param_type != JSON:
-            if self.value_type == bool:
-                low_val = value.lower()
+        if self.value_type == bool:
+            low_val = value.lower()
 
-                if low_val in ('true', '1'):
-                    value = True
-                elif low_val in ('false', '0'):
-                    value = False
-            elif self.value_type == list:
-                value = [item.strip() for item in value.split(',')]
-            elif self.value_type == dict:
-                value = {
-                    item.split(':')[0].strip(): item.partition(':')[-1].strip()
-                    for item in value.split(',')
-                }
+            if low_val in ('true', '1'):
+                value = True
+            elif low_val in ('false', '0'):
+                value = False
+        elif self.value_type == list:
+            value = [item.strip() for item in value.split(',')]
+        elif self.value_type == dict:
+            value = {
+                item.split(':')[0].strip(): item.partition(':')[-1].strip()
+                for item in value.split(',')
+            }
 
         try:
             if self.value_type:
@@ -125,7 +119,7 @@ class Param:
             value = ",".join(value) if value else None
         elif self.param_type == PATH:
             value = request.view_args.get(self.name)
-        elif self.param_type == JSON:
+        elif self.param_type == _JSON:
             json_ = request.get_json()
             value = json_.get(self.name) if json_ else None
         elif self.param_type == HEADER:
@@ -144,50 +138,50 @@ class Param:
 
 def validate_params(*params: Param):
     """
-    Validate route of request. Example:
-
-    @app.route('/<int:level>')
-    @validate_params(
-        # FORM param(request.form)
-        Param('param_name', FROM, ...),
-        # PATH param(part of route - request.view_args)
-        Param('level', PATH, rules=[Pattern(r'^[a-zA-Z0-9-_.]{5,20}$')]),
-    )
-    def example_route(level):
-        ...
+    :raises InvalidHeadersError:
+        When found invalid headers. Raises before other params validation
+    :raises InvalidRequestError:
+        Raises after headers validation if errors found
     """
     def validate_request(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            valid = __get_valid_request(params)
-            return func(valid, *args, **kwargs)
+            header_params, other_params = (), ()
+            for param in params:
+                if param.param_type == HEADER:
+                    header_params += (param, )
+                else:
+                    other_params += (param, )
+
+            valid = _ValidRequest()
+            valid, errors = __get_request_errors(header_params, valid)
+            if errors.get(HEADER):
+                raise InvalidHeadersError(errors[HEADER])
+
+            valid, errors = __get_request_errors(other_params, valid)
+            for type_errors in errors.values():
+                if type_errors:
+                    raise InvalidRequestError(errors)
+            args += (valid, )
+            return func(*args, **kwargs)
         return wrapper
     return validate_request
 
 
-def __get_valid_request(params: Tuple[Param, ...]) -> ValidRequest:
-    errors = {i: {} for i in _PARAM_TYPES}
-    valid = _ValidRequest()
+def __get_request_errors(
+    params: Tuple[Param, ...],
+    valid: _ValidRequest
+) -> Tuple[_ValidRequest, Dict[str, Dict[str, RulesError]]]:
+    errors = dict()
     for param in params:
         try:
             value = param.get_value_from_request()
-        except RequiredValueError as error:
-            errors[param.param_type][param.name] = error
-            continue
-
-        try:
             value = param.value_to_type(value)
-        except TypeConversionError as error:
-            errors[param.param_type][param.name] = error
-            continue
-
-        try:
             value = param.rules.validate(value)
             valid.set_value(param.param_type, param.name, value)
-        except RulesError as composite_errors:
-            errors[param.param_type][param.name] = composite_errors
+        except (RequiredValueError, TypeConversionError, RulesError) as error:
+            errors.setdefault(param.param_type, dict())
+            errors[param.param_type][param.name] = error
+            continue
 
-    for type_errors in errors.values():
-        if type_errors:
-            raise InvalidRequestError(errors)
-    return valid
+    return valid, errors

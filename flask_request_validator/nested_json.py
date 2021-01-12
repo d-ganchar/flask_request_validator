@@ -1,9 +1,10 @@
 from typing import Union, Dict, List, Tuple, Any
 
 from .exceptions import (
-    NestedJsonError,
+    JsonError,
     RequiredJsonKeyError,
     JsonListItemTypeError,
+    RulesError,
 )
 from .rules import CompositeRule, AbstractRule
 
@@ -21,7 +22,14 @@ class JsonParam:
         required: bool = True,
         as_list: bool = False,
     ) -> None:
-        self.rules_map = rules_map
+        if isinstance(rules_map, list):
+            self.rules_map = CompositeRule(*rules_map)
+        else:
+            for k, rules in rules_map.items():
+                if isinstance(rules, list):
+                    rules_map[k] = CompositeRule(*rules)
+            self.rules_map = rules_map
+
         self.required = required
         self.as_list = as_list  # JsonParam is list or dict
 
@@ -29,11 +37,12 @@ class JsonParam:
         """
         :raises JsonListItemTypeError
         """
-        if isinstance(nested.rules_map, list):
+        if isinstance(nested.rules_map, CompositeRule):
             if value is None:
                 return
             if not isinstance(value, (str, int, float, bool,)):
                 raise JsonListItemTypeError(False)
+            return
         if isinstance(nested.rules_map, dict) and not isinstance(value, dict):
             raise JsonListItemTypeError()
 
@@ -42,62 +51,30 @@ class JsonParam:
         value: Union[Dict, List],
         nested: 'JsonParam',
         depth: list,
-        errors: List[NestedJsonError],
+        errors: List[JsonError],
     ) -> Tuple[Union[Dict, List], List]:
         n_err = {}
         for ix, node in enumerate(value):  # type: int, dict or list
             try:
                 self._check_list_item_type(nested, node)
             except JsonListItemTypeError as e:
-                n_err = self._append_node_error(ix, n_err, e)
+                n_err[ix] = e
                 continue
 
             if isinstance(node, dict):
-                new_val, errors, sub_err = self._validate_dict(node, nested, depth, errors)
-                value, sub_err = self._extend_node_errors(ix, n_err, sub_err, value, new_val)
-            else:
-                if isinstance(nested.rules_map, list):
-                    for rule in nested.rules_map:  # type: AbstractRule
-                        new_val, sub_err = rule.validate(node)
-                        value, sub_err = self._extend_node_errors(
-                            key=ix,
-                            errors=n_err,
-                            node_errors=sub_err,
-                            value=value,
-                            new_value=new_val,
-                        )
-                elif isinstance(nested.rules_map, CompositeRule):
-                    new_val, sub_err = nested.rules_map.validate(value)
-                    value, sub_err = self._extend_node_errors(ix, n_err, sub_err, value, new_val)
+                value, errors, rules_err = self._validate_dict(node, nested, depth, errors)
+                if rules_err:
+                    n_err[ix] = rules_err
+                continue
+
+            try:
+                new_val = nested.rules_map.validate(value[ix])
+                value[ix] = new_val
+            except RulesError as e:
+                n_err[ix] = e
 
         if n_err:
             errors = self._collect_errors(depth, errors, n_err)
-        return value, errors
-
-    def _append_node_error(
-        self,
-        key: str or int,
-        errors: Dict[str, List[BaseException]],
-        error: BaseException
-    ) -> Dict[str, List[BaseException]]:
-        errors.setdefault(key, [])
-        errors[key].append(error)
-        return errors
-
-    def _extend_node_errors(
-        self,
-        key: str or int,
-        errors: Dict[str, List[BaseException]],
-        node_errors: List[BaseException],
-        value: Any,
-        new_value: Any,
-    ) -> Tuple[Any, Dict[str, List[BaseException]]]:
-        if node_errors:
-            errors.setdefault(key, [])
-            errors[key].extend(node_errors)
-            return value, errors
-        else:
-            value[key] = new_value
         return value, errors
 
     def _collect_errors(
@@ -108,8 +85,8 @@ class JsonParam:
     ) -> list:
         if nested_errors:
             try:
-                raise NestedJsonError(depth, nested_errors)
-            except NestedJsonError as e:
+                raise JsonError(depth, nested_errors)
+            except JsonError as e:
                 errors.append(e)
         return errors
 
@@ -118,21 +95,21 @@ class JsonParam:
         value: Union[Dict, List],
         nested: 'JsonParam',
         depth: list,
-        errors: List[NestedJsonError],
-    ) -> Tuple[Any, List[BaseException], List[BaseException]]:
+        errors: List[JsonError],
+    ) -> Tuple[Any, List[JsonError], Dict[str, RulesError]]:
         err = dict()
         for key, rules in nested.rules_map.items():
             if key not in value:
                 continue
             elif isinstance(rules, JsonParam):
                 new_val, errors = self.validate(value[key], rules, depth + [key], errors)
-            elif isinstance(rules, list):
-                for rule in rules:  # type: AbstractRule
-                    new_val, sub_err = rule.validate(value[key])
-                    value, sub_err = self._extend_node_errors(key, err, sub_err, value, new_val)
-            elif isinstance(rules, CompositeRule):
-                new_val, sub_err = rules.validate(value[key])
-                value, err = self._extend_node_errors(key, err, sub_err, value, new_val)
+                continue
+
+            try:
+                new_val = rules.validate(value[key])
+                value[key] = new_val
+            except RulesError as e:
+                err[key] = e
 
         return value, errors, err
 
@@ -148,7 +125,7 @@ class JsonParam:
         value: Union[Dict, List],
         nested: 'JsonParam' = None,
         depth: list = None,
-        errors: List[NestedJsonError] = None,
+        errors: List[JsonError] = None,
     ) -> Tuple[Union[Dict, List], List]:
         depth = depth or ['root']
         errors = errors or []
@@ -159,13 +136,13 @@ class JsonParam:
                 try:
                     self._check_required(key, value, rule)
                 except RequiredJsonKeyError as e:
-                    node_errors = self._append_node_error(key, node_errors, e)
+                    node_errors[key] = e
 
         if nested.as_list:
             value, errors = self._validate_list(value, nested, depth, errors)
-        else:
-            value, errors, nested_errors = self._validate_dict(value, nested, depth, errors)
-            node_errors.update(nested_errors)
+            return value, errors
 
+        value, errors, nested_errors = self._validate_dict(value, nested, depth, errors)
+        node_errors.update(nested_errors)
         errors = self._collect_errors(depth, errors, node_errors)
         return value, errors
