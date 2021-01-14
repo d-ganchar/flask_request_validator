@@ -1,4 +1,4 @@
-import json
+from typing import List, Union, Dict, Any
 
 
 class RequestError(Exception):
@@ -7,69 +7,105 @@ class RequestError(Exception):
     """
 
 
-class UndefinedParamType(RequestError):
-    """
-    Not allowed type of param(GET, POST )
-    """
+class WrongUsageError(RequestError):
+    pass
 
 
-class NotAllowedType(RequestError):
-    """
-    Not allowed type. See: rules.ALLOWED_TYPES
-    """
-
-
-class InvalidRequest(RequestError):
-    """
-    GET or POST data is invalid
-    """
-
-    def __init__(self, errors):
-        """
-        :param dict errors: {'get': dict_with_errors, 'post': dict_with_errors}
-        """
+class JsonError(RequestError):
+    def __init__(self, depth: List[str], errors: Dict[int, RequestError]):
+        self.depth = depth
         self.errors = errors
-        self.message = str(self)
-
-    def __str__(self):
-        return 'Invalid request data. ' + json.dumps(self.errors)
 
 
-class InvalidHeader(RequestError):
+class JsonListItemTypeError(RequestError):
     """
-    request header data is invalid
+    Raises when invalid type of list item.
+    Expected ['name'] but got [{'name': 'val'}] or [{'name': 'val'}] but got ['name']
     """
+    def __init__(self, only_dict=True):
+        """
+        :param only_dict: str, int, float, bool types if False. see: JsonParam._check_list_item_type
+        """
+        self.only_dict = only_dict
 
-    def __init__(self, errors):
-        """
-        :param dict errors: {'get': dict_with_errors, 'post': dict_with_errors}
-        """
+
+class RequiredValueError(RequestError):
+    pass
+
+
+class RequiredJsonKeyError(RequestError):
+    def __init__(self, key: str):
+        self.key = key
+
+
+class TypeConversionError(RequestError):
+    pass
+
+
+class RuleError(RequestError):
+    pass
+
+
+class ValuePatternError(RuleError):
+    def __init__(self, pattern: str):
+        self.pattern = pattern
+
+
+class ValueEnumError(RuleError):
+    def __init__(self, *args: Any):
+        self.allowed = args
+
+
+class ValueMaxLengthError(RuleError):
+    def __init__(self, length: int):
+        self.length = length
+
+
+class ValueMinLengthError(ValueMaxLengthError):
+    pass
+
+
+class ValueMaxError(RuleError):
+    def __init__(self, value: Union[int, float], include_boundary: bool):
+        self.value = value
+        self.include_boundary = include_boundary
+
+
+class ValueMinError(ValueMaxError):
+    pass
+
+
+class ValueEmptyError(RuleError):
+    pass
+
+
+class ValueDtIsoFormatError(RuleError):
+    pass
+
+
+class ValueEmailError(RuleError):
+    pass
+
+
+class RulesError(RequestError):
+    def __init__(self, *args: RuleError):
+        self.errors = args
+
+
+class InvalidHeadersError(RequestError):
+    def __init__(self, errors: Dict[str, RulesError]):
         self.errors = errors
-        self.message = str(self)
-
-    def __str__(self):
-        return 'Invalid request header. ' + json.dumps(self.errors)
 
 
-class ParameterNameIsNotUnique(RequestError):
-    """
-    Got same parameter name more than once. Example:
-
-    @validate_params(
-        Param('user', PATH, str),
-        Param('user', JSON, str),
-    )
-    """
-
-
-class TooManyArguments(RequestError):
-    """
-    Got more arguments in request then expected
-    """
-
-    def __init__(self, msg):
-        self.message = msg
-
-
-TooMuchArguments = TooManyArguments
-"""backward compatibility for version 3.0.0"""
+class InvalidRequestError(RequestError):
+    def __init__(
+        self,
+        get: Dict[str, RulesError],
+        form: Dict[str, RulesError],
+        path: Dict[str, RulesError],
+        json: Union[List[JsonError], Dict[str, RulesError]],
+    ):
+        self.json = json  # list when nested json validation
+        self.path = path
+        self.get = get
+        self.form = form

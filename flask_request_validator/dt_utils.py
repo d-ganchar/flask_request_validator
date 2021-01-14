@@ -1,7 +1,7 @@
 from datetime import datetime
 
 
-def datetime_from_iso_format(value: str) -> datetime:
+def dt_from_iso(value: str) -> datetime:
     """
         for python versions < 3.7 get datetime from isoformat
         Source: https://github.com/fitoprincipe/ipygee/blob/master/ipygee/tasks.py#L80

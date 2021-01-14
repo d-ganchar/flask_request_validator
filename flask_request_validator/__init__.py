@@ -1,4 +1,14 @@
-from .validator import validate_params, Param, GET, FORM, PATH, JSON, HEADER
+from .validator import (
+    validate_params,
+    Param,
+    GET,
+    FORM,
+    JSON,
+    PATH,
+    HEADER,
+)
+from .nested_json import JsonParam
+from .valid_request import ValidRequest
 from .rules import (
     AbstractRule,
     CompositeRule,
