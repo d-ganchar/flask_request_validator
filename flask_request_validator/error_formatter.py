@@ -1,4 +1,4 @@
-from .validator import PARAM_TYPES
+from .validator import JSON, FORM, PATH, GET
 from .exceptions import *
 
 
@@ -49,16 +49,11 @@ def demo_error_formatter(error: Union[InvalidRequestError, InvalidHeadersError])
             })
         return result
 
-    for name, errors in error.errors.items():
-        if name in PARAM_TYPES:
-            result.append({
-                'message': 'invalid {param} parameters'.format(param=name),
-                'errors': {
-                    key: _rules_error_to_text(rules_errors)
-                    for key, rules_errors in errors.items()
-                }
-            })
-        else:
+    errors_by_type = {FORM: error.form, GET: error.get, JSON: error.json, PATH: error.path}
+    for err_type, errors in errors_by_type.items():
+        if not errors:
+            continue
+        if err_type == JSON and isinstance(errors, list):
             json_errors = []
             for json_error in errors:  # type: JsonError
                 keys = dict()
@@ -77,8 +72,18 @@ def demo_error_formatter(error: Union[InvalidRequestError, InvalidHeadersError])
                 })
 
             result.append({
-                'message': 'invalid JSON parameters'.format(param=name),
+                'message': 'invalid {err_type} parameters'.format(err_type=err_type),
                 'errors': json_errors
             })
+
+            continue
+
+        result.append({
+            'message': 'invalid {err_type} parameters'.format(err_type=err_type),
+            'errors': {
+                key: _rules_error_to_text(rules_errors)
+                for key, rules_errors in errors.items()
+            }
+        })
 
     return result

@@ -14,8 +14,8 @@ GET = 'GET'
 PATH = 'PATH'
 FORM = 'FORM'
 HEADER = 'HEADER'
-_JSON = 'JSON'
-PARAM_TYPES = (GET, PATH, FORM, HEADER)
+JSON = 'JSON'
+PARAM_TYPES = (GET, PATH, FORM, JSON, HEADER)
 _ALLOWED_TYPES = (str, bool, int, float, dict, list)
 
 
@@ -28,7 +28,7 @@ class _ValidRequest(ValidRequest):
         self._valid_data[param_type][key] = value
 
     def set_json(self, value: dict):
-        self._valid_data[_JSON] = value
+        self._valid_data[JSON] = value
 
     def get_form(self) -> Dict[str, Any]:
         return self._valid_data.get(FORM, dict())
@@ -37,7 +37,7 @@ class _ValidRequest(ValidRequest):
         return self._valid_data.get(HEADER, dict())
 
     def get_json(self) -> Dict[str, Any]:
-        return self._valid_data.get(_JSON, dict())
+        return self._valid_data.get(JSON, dict())
 
     def get_params(self) -> Dict[str, Any]:
         return self._valid_data.get(GET, dict())
@@ -122,7 +122,7 @@ class Param:
             value = ",".join(value) if value else None
         elif self.param_type == PATH:
             value = request.view_args.get(self.name)
-        elif self.param_type == _JSON:
+        elif self.param_type == JSON:
             json_ = request.get_json()
             value = json_.get(self.name) if json_ else None
         elif self.param_type == HEADER:
@@ -164,7 +164,8 @@ def validate_params(*params: Union[JsonParam, Param]):
             valid, errors = __get_request_errors(other_params, valid)
             for type_errors in errors.values():
                 if type_errors:
-                    raise InvalidRequestError(errors)
+                    raise InvalidRequestError(errors[GET], errors[FORM],
+                                              errors[PATH], errors[JSON])
             args += (valid, )
             return func(*args, **kwargs)
         return wrapper
@@ -175,12 +176,12 @@ def __get_request_errors(
     params: Tuple[Union[Param, JsonParam], ...],
     valid: _ValidRequest
 ) -> Tuple[_ValidRequest, Dict[str, Union[Dict[str, RulesError], List[JsonError]]]]:
-    errors = dict()
+    errors = {GET: dict(), FORM: dict(), JSON: dict(), HEADER: dict(), PATH: dict()}
     for param in params:
         if isinstance(param, JsonParam):
             value, json_errors = param.validate(request.get_json())
             if json_errors:
-                errors[_JSON] = json_errors
+                errors[JSON] = json_errors
             else:
                 valid.set_json(value)
             continue
@@ -191,7 +192,6 @@ def __get_request_errors(
             value = param.rules.validate(value)
             valid.set_value(param.param_type, param.name, value)
         except (RequiredValueError, TypeConversionError, RulesError) as error:
-            errors.setdefault(param.param_type, dict())
             errors[param.param_type][param.name] = error
             continue
 

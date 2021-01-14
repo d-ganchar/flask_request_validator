@@ -47,6 +47,18 @@ def route_form(valid: ValidRequest, key: str, uuid: str):
     })
 
 
+@_app.route('/json', methods=['POST'])
+@validate_params(
+    Param('Authorization', HEADER, str, rules=[Enum('Bearer token')]),
+    Param('Custom header', HEADER, str, rules=[Enum('custom value')]),
+    Param('email', JSON, str, rules=[IsEmail()]),
+    Param('number', JSON, float),
+    Param('user', JSON, str, rules=CompositeRule(Pattern(r'^[a-z]{8,10}$'))),
+)
+def route_json(valid: ValidRequest):
+    return flask.jsonify({JSON: valid.get_json()})
+
+
 class TestRoutes(TestCase):
     @parameterized.expand([
         # empty
@@ -99,7 +111,7 @@ class TestRoutes(TestCase):
                     'cost': TypeConversionError,
                 },
                 FORM: {
-                    'bands': TypeConversionError,
+                    'bands': RequiredValueError,
                     'number': TypeConversionError,
                     'count': TypeConversionError,
                 },
@@ -154,12 +166,53 @@ class TestRoutes(TestCase):
                     headers=_VALID_HEADERS,
                 ).json
             except InvalidRequestError as e:
-                for k, exception in e.errors.items():
-                    if isinstance(exception, RulesError):
-                        for rule_ix in range(len(exception.errors)):
-                            self.assertTrue(isinstance(exception.errors[rule_ix], exp[k][rule_ix]))
+                for param_type, errors_by_key in exp.items():  # type: str, dict
+                    for k, exception in getattr(e, param_type.lower()).items():
+                        if isinstance(exception, RulesError):
+                            for rule_ix in range(len(exception.errors)):
+                                self.assertTrue(isinstance(exception.errors[rule_ix],
+                                                           exp[param_type][k][1][rule_ix]))
+                        else:
+                            self.assertTrue(isinstance(exception, exp[param_type][k]))
                 return
         self.assertEqual(response, result)
+
+    @parameterized.expand([
+        # empty all
+        ({}, {}),
+        # email only
+        ({'email': 'test@gmail.com'}, {}),
+        # number only
+        ({'number': 8.64}, {}),
+        # user only
+        ({'user': 'qwertyuio'}, {}),
+        # wrong number
+        ({'email': 'test@gmail.com', 'number': 'abc', 'user': 'qwertyuio'}, {}),
+        # valid
+        (
+            {'email': 'test@gmail.com', 'number': 8.64, 'user': 'qwertyuio'},
+            {'email': 'test@gmail.com', 'number': 8.64, 'user': 'qwertyuio'},
+        ),
+    ])
+    def test_json_param(self, data, expected):
+        with _app.test_client() as client:
+            if expected:
+                result = client.post(
+                    '/json',
+                    data=json.dumps(data),
+                    headers=_VALID_HEADERS,
+                    content_type='application/json',
+                ).json
+                self.assertDictEqual(result, {JSON: expected})
+            else:
+                self.assertRaises(
+                    InvalidRequestError,
+                    client.post,
+                    '/json',
+                    data=json.dumps(data),
+                    headers=_VALID_HEADERS,
+                    content_type='application/json',
+                )
 
     @parameterized.expand([
         # invalid
@@ -189,16 +242,17 @@ class TestRoutes(TestCase):
         # valid headers
         (_VALID_HEADERS, {}, ),
     ])
-    def test_from_without_headers(self, headers, exp):
+    def test_headers(self, headers, exp):
         with _app.test_client() as client:
-            try:
-                client.post('/form/key1/test_test', headers=headers)
-            except InvalidHeadersError as e:
-                self.assertEqual(len(exp), len(e.errors))
-                for k, err in e.errors.items():
-                    self.assertTrue(isinstance(err, exp[k]))
-            except InvalidRequestError:
-                return
+            for route in ('/form/key1/test_test', '/json'):
+                try:
+                    client.post(route, headers=headers)
+                except InvalidHeadersError as e:
+                    self.assertEqual(len(exp), len(e.errors))
+                    for k, err in e.errors.items():
+                        self.assertTrue(isinstance(err, exp[k]))
+                except InvalidRequestError:
+                    return
 
 
 class TestParam(TestCase):

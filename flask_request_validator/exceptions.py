@@ -98,8 +98,14 @@ class InvalidHeadersError(RequestError):
 
 
 class InvalidRequestError(RequestError):
-    """
-    Errors by PARAM_TYPES
-    """
-    def __init__(self, errors: Dict[str, Dict[str, RulesError]]):
-        self.errors = errors
+    def __init__(
+        self,
+        get: Dict[str, RulesError],
+        form: Dict[str, RulesError],
+        path: Dict[str, RulesError],
+        json: Union[List[JsonError], Dict[str, RulesError]],
+    ):
+        self.json = json  # list when nested json validation
+        self.path = path
+        self.get = get
+        self.form = form

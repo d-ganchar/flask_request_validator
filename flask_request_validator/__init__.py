@@ -3,6 +3,7 @@ from .validator import (
     Param,
     GET,
     FORM,
+    JSON,
     PATH,
     HEADER,
 )
