@@ -112,3 +112,16 @@ class TestRules(unittest.TestCase):
             self.assertEqual(dt.minute, dt_params[4])
             self.assertEqual(dt.second, dt_params[5])
             self.assertEqual(dt.microsecond, dt_params[6])
+
+    @parameterized.expand([
+        ('2021-01-02', '%Y-%m-%d', datetime(2021, 1, 2), None),
+        ('2020-02-03 04:05:06', '%Y-%m-%d %H:%M:%S', datetime(2020, 2, 3, 4, 5, 6), None),
+        ('2020-0a-0b 04:05:06', '%Y-%m-%d %H:%M:%S', None, ValueDatetimeError),
+        ('2020-01-0z', '%Y-%m-%d', None, ValueDatetimeError),
+    ])
+    def test_datetime_rule(self, value, dt_format, dt, err):
+        rule = DatetimeRule(dt_format)
+        if err:
+            self.assertRaises(ValueDatetimeError, rule.validate, value)
+        else:
+            self.assertEqual(dt, rule.validate(value))

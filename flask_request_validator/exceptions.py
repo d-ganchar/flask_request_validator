@@ -87,6 +87,16 @@ class ValueEmailError(RuleError):
     pass
 
 
+class ValueDatetimeError(RuleError):
+    def __init__(self, dt_format: str) -> None:
+        self.dt_format = dt_format
+
+
+class ListRuleError(RuleError):
+    def __init__(self, *errors: Any) -> None:
+        self.errors = errors
+
+
 class RulesError(RequestError):
     def __init__(self, *args: RuleError):
         self.errors = args

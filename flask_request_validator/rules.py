@@ -156,3 +156,17 @@ class IsEmail(AbstractRule):
         if not re.fullmatch(pattern=REGEX_EMAIL, string=value):
             raise ValueEmailError()
         return value
+
+
+class DatetimeRule(AbstractRule):
+    def __init__(self, dt_format: str) -> None:
+        self._dt_format = dt_format
+
+    def validate(self, value: str) -> datetime:
+        """
+        :raises ValueDatetimeError:
+        """
+        try:
+            return datetime.strptime(value, self._dt_format)
+        except ValueError:
+            raise ValueDatetimeError(self._dt_format)
