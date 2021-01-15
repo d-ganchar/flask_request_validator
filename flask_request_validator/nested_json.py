@@ -74,7 +74,7 @@ class JsonParam:
                 n_err[ix] = e
 
         if n_err:
-            errors = self._collect_errors(depth, errors, n_err)
+            errors = self._collect_errors(depth, errors, n_err, nested.as_list)
         return value, errors
 
     def _collect_errors(
@@ -82,10 +82,11 @@ class JsonParam:
         depth: list,
         errors: list,
         nested_errors: dict,
+        as_list: bool = False,
     ) -> list:
         if nested_errors:
             try:
-                raise JsonError(depth, nested_errors)
+                raise JsonError(depth, nested_errors, as_list)
             except JsonError as e:
                 errors.append(e)
         return errors

@@ -2,15 +2,13 @@ from datetime import datetime
 
 
 def dt_from_iso(value: str) -> datetime:
-    """
-        for python versions < 3.7 get datetime from isoformat
-        Source: https://github.com/fitoprincipe/ipygee/blob/master/ipygee/tasks.py#L80
-    """
-    d, t = value.split('T')
-    year, month, day = d.split('-')
-    hours, minutes, seconds = t.split(':')
-    seconds = float(seconds[0:-1])
-    sec = int(seconds)
-    microseconds = int((seconds-sec)*1e6)
-
-    return datetime(int(year), int(month), int(day), int(hours), int(minutes), sec, microseconds)
+    if len(value) == 10:
+        return datetime.strptime(value, '%Y-%m-%d')
+    if len(value) == 19:
+        return datetime.strptime(value, '%Y-%m-%dT%H:%M:%S')
+    if len(value) == 26:
+        return datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%f')
+    if len(value) == 32 and ':' == value[-3]:
+        value = value[:-3] + value[-2:]
+        return datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%f%z')
+    return datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%f')

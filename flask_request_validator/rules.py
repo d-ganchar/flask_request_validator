@@ -143,9 +143,9 @@ class IsDatetimeIsoFormat(AbstractRule):
     def validate(self, value: str) -> datetime:
         try:
             if sys.version_info >= (3, 7):
-                value = datetime.fromisoformat(value)
+                value = datetime.fromisoformat(value[:-1] if value.endswith('Z') else value)
             else:
-                value = dt_from_iso(value)
+                value = dt_from_iso(value[:-1] if value.endswith('Z') else value)
         except (TypeError, ValueError, AttributeError):
             raise ValueDtIsoFormatError()
         return value

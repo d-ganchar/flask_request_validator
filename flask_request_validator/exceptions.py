@@ -12,9 +12,10 @@ class WrongUsageError(RequestError):
 
 
 class JsonError(RequestError):
-    def __init__(self, depth: List[str], errors: Dict[int, RequestError]):
+    def __init__(self, depth: List[str], errors: Dict[int, RequestError], as_list: bool):
         self.depth = depth
         self.errors = errors
+        self.as_list = as_list
 
 
 class JsonListItemTypeError(RequestError):

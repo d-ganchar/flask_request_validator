@@ -1,5 +1,6 @@
 import unittest
 import random
+from datetime import timezone, timedelta
 
 from parameterized import parameterized
 
@@ -92,26 +93,25 @@ class TestRules(unittest.TestCase):
         self._assert_rule_error(IsEmail(), value, exp_err)
 
     @parameterized.expand([
-        ('2021-01-02T03:04:05.450686Z', (2021, 1, 2, 3, 4, 5, 450686), None),
-        ('2020-12-01T21:31:32.956214Z', (2020, 12, 1, 21, 31, 32, 956214), None),
-        ('2021-01-02', (), ValueDtIsoFormatError),
-        ('2020-12-01T21', (), ValueDtIsoFormatError),
-        ('2020-12-01T21:31', (), ValueDtIsoFormatError),
+        ('2021-01-02T03:04:05.450686Z', datetime(2021, 1, 2, 3, 4, 5, 450686)),
+        (
+            '2020-12-01T21:31:32.956214+02:00',
+            datetime(2020, 12, 1, 21, 31, 32, 956214, timezone(timedelta(seconds=7200))),
+        ),
+        (
+            '2020-12-01T21:31:32.956214-02:00',
+            datetime(2020, 12, 1, 21, 31, 32, 956214, timezone(timedelta(-1, seconds=79200))),
+        ),
+        ('2021-01-02', datetime(2021, 1, 2)),
+        ('2020-12-01T21:31:41', datetime(2020, 12, 1, 21, 31, 41)),
+        ('2020-12-01T21', None),
     ])
-    def test_datetime_iso_format_rule(self, value, dt_params, exp_err) -> None:
+    def test_datetime_iso_format_rule(self, value, exp_dt) -> None:
         rule = IsDatetimeIsoFormat()
-        if exp_err:
-            self.assertRaises(exp_err, rule.validate, value)
+        if exp_dt:
+            self.assertEqual(exp_dt, rule.validate(value))
         else:
-            dt = rule.validate(value)
-            self.assertTrue(isinstance(dt, datetime))
-            self.assertEqual(dt.year, dt_params[0])
-            self.assertEqual(dt.month, dt_params[1])
-            self.assertEqual(dt.day, dt_params[2])
-            self.assertEqual(dt.hour, dt_params[3])
-            self.assertEqual(dt.minute, dt_params[4])
-            self.assertEqual(dt.second, dt_params[5])
-            self.assertEqual(dt.microsecond, dt_params[6])
+            self.assertRaises(ValueDtIsoFormatError, rule.validate, value)
 
     @parameterized.expand([
         ('2021-01-02', '%Y-%m-%d', datetime(2021, 1, 2), None),

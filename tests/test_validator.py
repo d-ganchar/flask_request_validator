@@ -372,30 +372,24 @@ class TestNestedJson(TestCase):
             },
             [
                 {
-                    'message': 'invalid JSON parameters',
                     'errors': [
-                        {
-                            'path': 'root|music|bands|details',
+                        {'keys': {'description': 'invalid length, min length = 5',
+                                  'status': 'not allowed, allowed values: active|not_active'},
+                         'path': 'root|music|bands|details'},
+                        {'list_items': {'0': {'name': 'invalid length, min length = 3'},
+                                        '1': {'name': 'invalid length, min length = 3'}},
+                         'path': 'root|music|bands|persons'}, {
                             'keys': {'description': 'invalid length, min length = 5',
-                                     'status': 'not allowed, allowed values: active|not_active'}},
-                        {'path': 'root|music|bands|persons',
-                         'objects': {'0': {'name': 'invalid length, min length = 3'},
-                                     '1': {'name': 'invalid length, min length = 3'}}},
-                        {'path': 'root|music|bands|details',
-                         'keys': {'description': 'invalid length, min length = 5',
-                                  'status': 'not allowed, allowed values: active|not_active'}},
-                        {'path': 'root|music|bands|persons',
-                         'objects': {'0': {'name': 'invalid length, min length = 3'}}},
-                        {'path': 'root|music|bands',
-                         'objects': {'0': {'name': 'invalid length, min length = 2'},
-                                     '1': {
-                                         'name': 'invalid length, min length = 2'}}},
-                        {'path': 'root',
-                         'keys': {'island': 'value does not match pattern ^[a-z]{4,20}$',
-                                  'iso': 'expected a datetime in ISO format'
-                                  }
-                         }
-                    ]
+                                     'status': 'not allowed, allowed values: active|not_active'},
+                            'path': 'root|music|bands|details'},
+                        {'list_items': {'0': {'name': 'invalid length, min length = 3'}},
+                         'path': 'root|music|bands|persons'},
+                        {'list_items': {'0': {'name': 'invalid length, min length = 2'},
+                                        '1': {'name': 'invalid length, min length = 2'}},
+                         'path': 'root|music|bands'}, {
+                            'keys': {'island': 'value does not match pattern ^[a-z]{4,20}$',
+                                     'iso': 'expected a datetime in ISO format'}, 'path': 'root'}],
+                    'message': 'invalid JSON parameters'
                 }
             ],
             '400 BAD REQUEST',
