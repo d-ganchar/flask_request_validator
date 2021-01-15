@@ -347,6 +347,8 @@ def home(valid: ValidRequest):
 
 
 class TestNestedJson(TestCase):
+    maxDiff = 2000
+
     @parameterized.expand([
         # invalid
         (
@@ -369,24 +371,31 @@ class TestNestedJson(TestCase):
                 }
             },
             [
-                {'errors': [
-                    {'depth': 'root|music|bands|details',
-                     'keys': {'description': ['minimum allowed length is 5'],
-                              'status': ["allowed values: (('active', 'not_active'),)"]}},
-                    {'depth': 'root|music|bands|persons',
-                     'keys': {'name': ['minimum allowed length is 3']}},
-                    {'depth': 'root|music|bands|details',
-                     'keys': {'description': ['minimum allowed length is 5'],
-                              'status': ["allowed values: (('active', 'not_active'),)"]}},
-                    {'depth': 'root|music|bands|persons',
-                     'keys': {'name': ['minimum allowed length is 3']}},
-                    {'depth': 'root|music|bands',
-                     'keys': {'name': ['minimum allowed length is 2']}},
-                    {'depth': 'root',
-                     'keys': {'island': ['value does not match pattern ^[a-z]{4,20}$'],
-                              'iso': ['invalid datetime iso format']}}
-                ],
-                    'message': 'invalid JSON parameters'
+                {
+                    'message': 'invalid JSON parameters',
+                    'errors': [
+                        {
+                            'path': 'root|music|bands|details',
+                            'keys': {'description': 'invalid length, min length = 5',
+                                     'status': 'not allowed, allowed values: active|not_active'}},
+                        {'path': 'root|music|bands|persons',
+                         'objects': {'0': {'name': 'invalid length, min length = 3'},
+                                     '1': {'name': 'invalid length, min length = 3'}}},
+                        {'path': 'root|music|bands|details',
+                         'keys': {'description': 'invalid length, min length = 5',
+                                  'status': 'not allowed, allowed values: active|not_active'}},
+                        {'path': 'root|music|bands|persons',
+                         'objects': {'0': {'name': 'invalid length, min length = 3'}}},
+                        {'path': 'root|music|bands',
+                         'objects': {'0': {'name': 'invalid length, min length = 2'},
+                                     '1': {
+                                         'name': 'invalid length, min length = 2'}}},
+                        {'path': 'root',
+                         'keys': {'island': 'value does not match pattern ^[a-z]{4,20}$',
+                                  'iso': 'expected a datetime in ISO format'
+                                  }
+                         }
+                    ]
                 }
             ],
             '400 BAD REQUEST',

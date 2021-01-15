@@ -28,18 +28,28 @@ class JsonListItemTypeError(RequestError):
         """
         self.only_dict = only_dict
 
+    def __str__(self) -> str:
+        if self.only_dict:
+            return 'invalid type, expected object'
+        return 'invalid type expected string or number'
+
 
 class RequiredValueError(RequestError):
-    pass
+    def __str__(self) -> str:
+        return 'value is required'
 
 
 class RequiredJsonKeyError(RequestError):
     def __init__(self, key: str):
         self.key = key
 
+    def __str__(self) -> str:
+        return f'json key "{self.key}" is required'
+
 
 class TypeConversionError(RequestError):
-    pass
+    def __str__(self) -> str:
+        return 'invalid type'
 
 
 class RuleError(RequestError):
@@ -50,19 +60,29 @@ class ValuePatternError(RuleError):
     def __init__(self, pattern: str):
         self.pattern = pattern
 
+    def __str__(self) -> str:
+        return f'value does not match pattern {self.pattern}'
+
 
 class ValueEnumError(RuleError):
-    def __init__(self, *args: Any):
-        self.allowed = args
+    def __init__(self, allowed: Any):
+        self.allowed = allowed
+
+    def __str__(self) -> str:
+        return 'not allowed, allowed values: ' + '|'.join(self.allowed)
 
 
 class ValueMaxLengthError(RuleError):
     def __init__(self, length: int):
         self.length = length
 
+    def __str__(self) -> str:
+        return f'invalid length, max length = {self.length}'
+
 
 class ValueMinLengthError(ValueMaxLengthError):
-    pass
+    def __str__(self) -> str:
+        return f'invalid length, min length = {self.length}'
 
 
 class ValueMaxError(RuleError):
@@ -70,30 +90,44 @@ class ValueMaxError(RuleError):
         self.value = value
         self.include_boundary = include_boundary
 
+    def __str__(self) -> str:
+        if self.include_boundary:
+            return f'greater then allowed: value is not <= {self.value}'
+        return f'greater then allowed: value is not < {self.value}'
+
 
 class ValueMinError(ValueMaxError):
-    pass
+    def __str__(self) -> str:
+        if self.include_boundary:
+            return f'smaller then allowed: value is not >= {self.value}'
+        return f'smaller then allowed: value is not > {self.value}'
 
 
 class ValueEmptyError(RuleError):
-    pass
+    def __str__(self) -> str:
+        return 'empty string not allowed'
 
 
 class ValueDtIsoFormatError(RuleError):
-    pass
+    def __str__(self) -> str:
+        return f'expected a datetime in ISO format'
 
 
 class ValueEmailError(RuleError):
-    pass
+    def __str__(self) -> str:
+        return 'invalid email address'
 
 
 class ValueDatetimeError(RuleError):
     def __init__(self, dt_format: str) -> None:
         self.dt_format = dt_format
 
+    def __str__(self) -> str:
+        return f'expected a datetime in {self.dt_format} format'
+
 
 class ListRuleError(RuleError):
-    def __init__(self, *errors: Any) -> None:
+    def __init__(self, errors: List[Any]) -> None:
         self.errors = errors
 
 
@@ -101,10 +135,19 @@ class RulesError(RequestError):
     def __init__(self, *args: RuleError):
         self.errors = args
 
+    def __str__(self) -> str:
+        return '. '.join([str(e) for e in self.errors])
+
 
 class InvalidHeadersError(RequestError):
     def __init__(self, errors: Dict[str, RulesError]):
         self.errors = errors
+
+    def __str__(self) -> str:
+        formatted = []
+        for name, rules_errors in self.errors.items():
+            formatted.append(f'invalid header {name}. {rules_errors}')
+        return '. '.join(formatted)
 
 
 class InvalidRequestError(RequestError):
