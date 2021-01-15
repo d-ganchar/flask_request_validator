@@ -120,7 +120,7 @@ class TestRules(unittest.TestCase):
         ('2020-01-0z', '%Y-%m-%d', None, ValueDatetimeError),
     ])
     def test_datetime_rule(self, value, dt_format, dt, err):
-        rule = DatetimeRule(dt_format)
+        rule = Datetime(dt_format)
         if err:
             self.assertRaises(ValueDatetimeError, rule.validate, value)
         else:

@@ -158,7 +158,7 @@ class IsEmail(AbstractRule):
         return value
 
 
-class DatetimeRule(AbstractRule):
+class Datetime(AbstractRule):
     def __init__(self, dt_format: str) -> None:
         self._dt_format = dt_format
 

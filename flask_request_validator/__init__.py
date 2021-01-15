@@ -21,5 +21,5 @@ from .rules import (
     Min,
     NotEmpty,
     Pattern,
-    DatetimeRule,
+    Datetime,
 )
