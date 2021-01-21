@@ -175,17 +175,19 @@ class IsDatetimeIsoFormat(AbstractRule):
 
     @overrides(AbstractRule)
     def validate(self, value: str) -> Tuple[Union[str, datetime], List[str]]:
-        errors = []
+        error = f'invalid value: {value} is not a datetime in ISO format'
+        if len(value) < 10:
+            return value, [error]
 
         try:
             if sys.version_info >= (3, 7):
-                value = datetime.fromisoformat(value)
+                value = datetime.fromisoformat(value[:-1] if value.endswith('Z') else value)
             else:
-                value = datetime_from_iso_format(value)
+                value = datetime_from_iso_format(value[:-1] if value.endswith('Z') else value)
         except (TypeError, ValueError, AttributeError):
-            errors.append(f'invalid value: {value} is not a datetime in ISO format')
+            return value, [error]
 
-        return value, errors
+        return value, []
 
 
 class IsEmail(AbstractRule):

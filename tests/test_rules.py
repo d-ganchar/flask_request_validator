@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask_request_validator.date_time_iso_format import datetime_from_iso_format
 from flask_request_validator.rules import IsEmail, IsDatetimeIsoFormat, NotEmpty, Max, Min, AbstractRule, MinLength, \
@@ -107,7 +107,7 @@ class TestRules(unittest.TestCase):
         for value in [-42, -2, -1, 0, 1, 2, 3, 4]:
             self.assertEqual(1, len(rule.validate(value)[1]))
 
-    def test_datetime_iso_format_rule(self) -> None:
+    def test_datetime_iso_invalide(self) -> None:
         rule = IsDatetimeIsoFormat()
         now = datetime.now()
 
@@ -115,16 +115,21 @@ class TestRules(unittest.TestCase):
         self.assertTrue(abs(now - actual) < timedelta(milliseconds=1))
         self.assertEqual([], errors)
 
-        for value in ['invalid', 42, '12.12.2020']:
+        for value in ['invalid', '2020-01-1', '12.12.2020']:
             self.assertEqual(1, len(rule.validate(value)[1]))
 
-    def test_datetime_iso_format_python_3_6(self) -> None:
-        now = datetime.now()
-        self.assertTrue(abs(now - datetime_from_iso_format(now.isoformat())) < timedelta(milliseconds=1))
-
-        for value in ['invalid', 42, '12.12.2020']:
-            with self.assertRaises(expected_exception=(AttributeError, ValueError)):
-                datetime_from_iso_format(value=value)
+    def test_datetime_iso_valid(self) -> None:
+        rule = IsDatetimeIsoFormat()
+        for dt_str, exp in (
+            ('2021-02-02T02:02:02.518993Z', datetime(2021, 2, 2, 2, 2, 2, 518993)),
+            ('2021-02-02T02:02:02.696969', datetime(2021, 2, 2, 2, 2, 2, 696969)),
+            (
+                '2022-03-03T03:03:03.518993+02:00',
+                datetime(2022, 3, 3, 3, 3, 3, 518993, timezone(timedelta(seconds=7200)))
+            ),
+            ('2023-04-04T05:05:05', datetime(2023, 4, 4, 5, 5, 5, )),
+        ):
+            self.assertEqual(rule.validate(dt_str)[0], exp)
 
     def test_is_email_rule(self) -> None:
         rule = IsEmail()
