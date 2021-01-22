@@ -104,7 +104,11 @@ class TestRules(unittest.TestCase):
         ),
         ('2021-01-02', datetime(2021, 1, 2)),
         ('2020-12-01T21:31:41', datetime(2020, 12, 1, 21, 31, 41)),
-        ('2020-12-01T21', None),
+        ('2020-12-01T21', datetime(2020, 12, 1, 21, 0, 0)),
+        ('2020-12-01T21:30', datetime(2020, 12, 1, 21, 30, 0)),
+        ('2020-12-01T', None),
+        ('2020-12', None),
+        ('2020', None),
     ])
     def test_datetime_iso_format_rule(self, value, exp_dt) -> None:
         rule = IsDatetimeIsoFormat()
