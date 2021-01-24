@@ -1,30 +1,52 @@
 import types
-import inspect
 from functools import wraps
 from typing import Tuple
 
 from flask import request
 
-from .exceptions import (
-    NotAllowedType,
-    UndefinedParamType,
-    InvalidRequest,
-    TooManyArguments,
-    InvalidHeader, ParameterNameIsNotUnique
-)
-from .rules import CompositeRule, ALLOWED_TYPES
+from .exceptions import *
+from .rules import CompositeRule
+from .valid_request import ValidRequest
+from .nested_json import JsonParam
 
-# request params. see: __get_request_value()
+
 GET = 'GET'
 PATH = 'PATH'
 FORM = 'FORM'
-JSON = 'JSON'
 HEADER = 'HEADER'
-PARAM_TYPES = (GET, PATH, JSON, FORM, HEADER)
+JSON = 'JSON'
+PARAM_TYPES = (GET, PATH, FORM, JSON, HEADER)
+_ALLOWED_TYPES = (str, bool, int, float, dict, list)
 
 
-class Param(object):
+class _ValidRequest(ValidRequest):
+    def __init__(self) -> None:
+        self._valid_data = dict()
 
+    def set_value(self, param_type: str, key: str, value: Any):
+        self._valid_data.setdefault(param_type, dict())
+        self._valid_data[param_type][key] = value
+
+    def set_json(self, value: dict):
+        self._valid_data[JSON] = value
+
+    def get_form(self) -> Dict[str, Any]:
+        return self._valid_data.get(FORM, dict())
+
+    def get_headers(self) -> Dict[str, Any]:
+        return self._valid_data.get(HEADER, dict())
+
+    def get_json(self) -> Dict[str, Any]:
+        return self._valid_data.get(JSON, dict())
+
+    def get_params(self) -> Dict[str, Any]:
+        return self._valid_data.get(GET, dict())
+
+    def get_path_params(self) -> Dict[str, Any]:
+        return self._valid_data.get(PATH, dict())
+
+
+class Param:
     def __init__(self, name, param_type, value_type=None,
                  required=True, default=None, rules=None):
         """
@@ -34,198 +56,143 @@ class Param(object):
         :param list|CompositeRule rules:
         :param str name: name of param
         :param str param_type: type of request param (see: PARAM_TYPES)
-        :raises: UndefinedParamType, NotAllowedType
+        :raises: UndefinedParamType, NotAllowedType, WrongUsageError
         """
-
         if param_type not in PARAM_TYPES:
-            raise UndefinedParamType('Undefined param type "%s"' % param_type)
-
-        if value_type and value_type not in ALLOWED_TYPES:
-            raise NotAllowedType('Value type "%s" is not allowed' % value_type)
+            raise WrongUsageError(
+                'Param.name = "%s". '
+                'invalid Param.value_type "%s". allowed: %s' % (name, param_type, PARAM_TYPES))
+        if value_type and value_type not in _ALLOWED_TYPES:
+            raise WrongUsageError(
+                'Param.name = "%s". '
+                'invalid Param.value_type "%s". allowed: %s' % (name, value_type, _ALLOWED_TYPES))
+        if required and default:
+            raise WrongUsageError(
+                'Param.name = "%s". '
+                'defaults are only allowed when required=False' % (name, ))
 
         self.value_type = value_type
         self.default = default
         self.required = required
         self.name = name
         self.param_type = param_type
-        self.rules = rules or []
+        if isinstance(rules, CompositeRule):
+            self.rules = rules
+        else:
+            self.rules = CompositeRule(*rules or [])
 
-    def value_to_type(self, value):
+    def value_to_type(self, value: Any) -> Any:
         """
-        :param mixed value:
-        :return: mixed
+        :raises TypeConversionError:
         """
-        if self.param_type != JSON:
-            if self.value_type == bool:
-                low_val = value.lower()
+        if self.value_type == bool:
+            low_val = value.lower()
 
-                if low_val in ('true', '1'):
-                    value = True
-                elif low_val in ('false', '0'):
-                    value = False
-            elif self.value_type == list:
-                value = [item.strip() for item in value.split(',')]
-            elif self.value_type == dict:
-                value = {
-                    item.split(':')[0].strip(): item.partition(':')[-1].strip()
-                    for item in value.split(',')
-                }
+            if low_val in ('true', '1'):
+                value = True
+            elif low_val in ('false', '0'):
+                value = False
+        elif self.value_type == list:
+            value = [item.strip() for item in value.split(',')]
+        elif self.value_type == dict:
+            value = {
+                item.split(':')[0].strip(): item.partition(':')[-1].strip()
+                for item in value.split(',')
+            }
 
-        if self.value_type:
-            value = self.value_type(value)
+        try:
+            if self.value_type:
+                value = self.value_type(value)
+        except (ValueError, TypeError):
+            raise TypeConversionError()
 
+        if self.value_type != type(value):
+            raise TypeConversionError()
+        return value
+
+    def get_value_from_request(self) -> Any:
+        """
+        :raises RequiredValueError:
+        """
+        value = None
+        if self.param_type == FORM:
+            value = request.form.get(self.name)
+        elif self.param_type == GET:
+            value = request.args.getlist(self.name)
+            value = ",".join(value) if value else None
+        elif self.param_type == PATH:
+            value = request.view_args.get(self.name)
+        elif self.param_type == JSON:
+            json_ = request.get_json()
+            value = json_.get(self.name) if json_ else None
+        elif self.param_type == HEADER:
+            value = request.headers.get(self.name)
+
+        if value is None:
+            if self.required:
+                raise RequiredValueError()
+            if self.default:
+                if isinstance(self.default, types.LambdaType):
+                    value = self.default()
+                else:
+                    value = self.default
         return value
 
 
-def validate_params(*params: Param, return_as_kwargs: bool = True):
+def validate_params(*params: Union[JsonParam, Param]):
     """
-    Validate route of request. Example:
-
-    @app.route('/<int:level>')
-    @validate_params(
-        # FORM param(request.form)
-        Param('param_name', FROM, ...),
-        # PATH param(part of route - request.view_args)
-        Param('level', PATH, rules=[Pattern(r'^[a-zA-Z0-9-_.]{5,20}$')]),
-    )
-    def example_route(level):
-        ...
+    :raises InvalidHeadersError:
+        When found invalid headers. Raises before other params validation
+    :raises InvalidRequestError:
+        Raises after headers validation if errors found
     """
-
     def validate_request(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            errors, endpoint_args = __get_errors(params)
-            if errors:
-                if __all_params_are_of_type(params, HEADER):
-                    raise InvalidHeader(errors)
+            header_params, other_params = (), ()
+            for param in params:
+                if isinstance(param, Param) and param.param_type == HEADER:
+                    header_params += (param, )
                 else:
-                    raise InvalidRequest(errors)
+                    other_params += (param, )
 
-            if __all_params_are_of_type(params, JSON):
-                __check_if_too_many_params_in_request(params)
+            valid = _ValidRequest()
+            valid, errors = __get_request_errors(header_params, valid)
+            if errors.get(HEADER):
+                raise InvalidHeadersError(errors[HEADER])
 
-            if args:
-                endpoint_args = (args[0], ) + tuple(endpoint_args)
-
-            spec = inspect.getfullargspec(func)
-
-            kwargs = {k: v for k, v in kwargs.items() if k not in [x.name for x in params]}
-
-            if spec.varkw == 'kwargs' and return_as_kwargs:
-                __check_that_param_names_are_unique(params)
-                endpoint_kw = {v.name: endpoint_args[i] for i, v in enumerate(params) if endpoint_args[i] is not None}
-                return func(**{**kwargs, **endpoint_kw})
-
-            return func(*endpoint_args, **kwargs)
-
+            valid, errors = __get_request_errors(other_params, valid)
+            for type_errors in errors.values():
+                if type_errors:
+                    raise InvalidRequestError(errors[GET], errors[FORM],
+                                              errors[PATH], errors[JSON])
+            args += (valid, )
+            return func(*args, **kwargs)
         return wrapper
-
     return validate_request
 
 
-def __get_errors(params: Tuple[Param, ...]):
-    """
-    Returns errors of validation and valid values
-    :param tuple params: (Param(), Param(), ...)
-    :rtype: list
-    :return:
-        {{'param_name': ['error1', 'error2', ...], ...},
-        [value1, value2, value3, ...]
-    """
-
-    errors = {}
-    valid_values = []
-
+def __get_request_errors(
+    params: Tuple[Union[Param, JsonParam], ...],
+    valid: _ValidRequest
+) -> Tuple[_ValidRequest, Dict[str, Union[Dict[str, RulesError], List[JsonError]]]]:
+    errors = {GET: dict(), FORM: dict(), JSON: dict(), HEADER: dict(), PATH: dict()}
     for param in params:
-        param_name = param.name
-        param_type = param.param_type
-        value = __get_request_value(param_type, param_name)
-
-        if value is None:
-            if param.required:
-                errors[param_name] = ['Value is required']
+        if isinstance(param, JsonParam):
+            value, json_errors = param.validate(request.get_json())
+            if json_errors:
+                errors[JSON] = json_errors
             else:
-                if param.default is not None:
-                    if isinstance(param.default, types.LambdaType):
-                        value = param.default()
-                    else:
-                        value = param.default
+                valid.set_json(value)
+            continue
 
-                valid_values.append(value)
-        else:
-            if param.value_type:
-                try:
-                    value = param.value_to_type(value)
-                except (ValueError, TypeError):
-                    errors[param_name] = [
-                        'Error of conversion value "%s" to type %s' %
-                        (value, param.value_type)
-                    ]
+        try:
+            value = param.get_value_from_request()
+            value = param.value_to_type(value)
+            value = param.rules.validate(value)
+            valid.set_value(param.param_type, param.name, value)
+        except (RequiredValueError, TypeConversionError, RulesError) as error:
+            errors[param.param_type][param.name] = error
+            continue
 
-                    continue
-
-                if param.value_type != type(value):
-                    errors[param_name] = [
-                        'Error of conversion value "%s" to type %s' %
-                        (value, param.value_type)
-                    ]
-
-                    continue
-
-            rules_errors = []
-            for rule in param.rules:
-                value, rule_errors = rule.validate(value)
-                rules_errors.extend(rule_errors)
-
-            if rules_errors:
-                errors[param_name] = rules_errors
-            else:
-                valid_values.append(value)
-
-    return errors, valid_values
-
-
-def __all_params_are_of_type(params, param_type: str) -> bool:
-    for param in params:
-        if param.param_type != param_type:
-            return False
-    return True
-
-
-def __check_if_too_many_params_in_request(params):
-    expected = {param.name for param in params}
-    actual = request.get_json().keys()
-    unexpected_keys = {key for key in actual if key not in expected}
-
-    if unexpected_keys:
-        raise TooManyArguments(f'Got unexpected keys: {unexpected_keys}')
-
-
-def __check_that_param_names_are_unique(params):
-    names = [param.name for param in params]
-    if len(names) != len(set(names)):
-        raise ParameterNameIsNotUnique()
-
-
-def __get_request_value(value_type, name):
-    """
-    :param str value_type: POST, GET or VIEW
-    :param str name:
-    :raise: UndefinedParamType
-    :return: mixed
-    """
-    if value_type == FORM:
-        return request.form.get(name)
-    elif value_type == GET:
-        value = request.args.getlist(name)
-        return ",".join(value) if value else None
-    elif value_type == PATH:
-        return request.view_args.get(name)
-    elif value_type == JSON:
-        json_ = request.get_json()
-        return json_.get(name) if json_ else None
-    elif value_type == HEADER:
-        return request.headers.get(name)  # None is fine here
-    else:
-        raise UndefinedParamType('Undefined param type %s' % name)
+    return valid, errors

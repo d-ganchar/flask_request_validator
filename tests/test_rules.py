@@ -1,141 +1,131 @@
 import unittest
-from datetime import datetime, timedelta, timezone
+import random
+from datetime import timezone, timedelta
 
-from flask_request_validator.date_time_iso_format import datetime_from_iso_format
-from flask_request_validator.rules import IsEmail, IsDatetimeIsoFormat, NotEmpty, Max, Min, AbstractRule, MinLength, \
-    MaxLength, Enum, Pattern, CompositeRule
+from parameterized import parameterized
+
+from flask_request_validator.rules import *
+from flask_request_validator.exceptions import *
 
 
 class TestRules(unittest.TestCase):
-
     def test_abstract_rule(self) -> None:
         with self.assertRaises(expected_exception=TypeError):
             AbstractRule()
 
-    def test_composite_rule(self) -> None:
-        rules = [Min(1), Max(2)]
-        rule = CompositeRule(*rules)
+    def _assert_single_rules_error(self, rules, value, exp_type):
+        if exp_type:
+            try:
+                rules.validate(value)
+            except RulesError as e:
+                self.assertTrue(1, len(e.errors))
+                self.assertTrue(isinstance(e.errors[0], exp_type))
 
-        for r in rule:
-            self.assertIn(r, rules)
+    def _assert_rule_error(self, rule, value, exp_type):
+        if exp_type:
+            self.assertRaises(exp_type, rule.validate, value)
 
-        for value in [1.0, 1, 1.0002, 1.2, 1.5, 1.9999, 2, 2.0]:
-            self.assertEqual((value, []), rule.validate(value))
+    @parameterized.expand([
+        (1.00001, Min(1), Max(2), None),
+        (1.00000, Min(1), Max(2), None),
+        (1.99999, Min(1), Max(2), None),
+        (2.00000, Min(1), Max(2), None),
+        (0.000009, Min(1), Max(2), ValueMinError),
+        (1.00000, Min(1, False), Max(2), ValueMinError),
+        (2.0000001, Min(1), Max(2), ValueMaxError),
+        (2.00000, Min(1), Max(2, False), ValueMaxError),
+    ])
+    def test_min_max(self, value, min_rule, max_rule, exp) -> None:
+        rules = CompositeRule(*[min_rule, max_rule])
+        self._assert_single_rules_error(rules, value, exp)
 
-        for value in [-42, -1, 0, 0.999, 2.00001, 2.4, 3.8, 46868841635]:
-            self.assertEqual(1, len(rule.validate(value)[1]))
+    @parameterized.expand([
+        (Pattern(r'^[0-9]*$'), '0', None, ),
+        (Pattern(r'^[0-9]*$'), '23456', None, ),
+        (Pattern(r'^[0-9]*$'), 'god is an astronaut', ValuePatternError,),
+        (Pattern(r'^[0-9]*$'), ' ', ValuePatternError,),
+    ])
+    def test_pattern_rule(self, rule, value, exp) -> None:
+        self._assert_rule_error(rule, value, exp)
 
-    def test_pattern_rule(self) -> None:
-        rule = Pattern(r'^[0-9]*$')
+    @parameterized.expand([
+        (Enum('thievery corporation', 'bonobo'), 'jimi hendrix', ValueEnumError),
+        (Enum('thievery corporation', 'bonobo'), 'thievery corporation', None),
+        (Enum('thievery corporation', 'bonobo'), 'bonobo', None),
+    ])
+    def test_enum_rule(self, rule, value, exp) -> None:
+        self._assert_rule_error(rule, value, exp)
 
-        for value in ['0', '23456', 213, '1100']:
-            self.assertEqual((value, []), rule.validate(value))
+    @parameterized.expand([
+        ('mammal hands', MinLength(11), MaxLength(13), None),
+        ('mammal hands', MinLength(11), MaxLength(13), ValueMinError),
+        ('#mammal hands#', MinLength(11), MaxLength(13), ValueMaxLengthError),
+    ])
+    def test_min_max_length_rule(self, value, min_l, max_l, exp):
+        rules = CompositeRule(*[min_l, max_l])
+        self._assert_single_rules_error(rules, value, exp)
 
-        for value in ['hello', ' ', '2345h456z']:
-            self.assertEqual(1, len(rule.validate(value)[1]))
-
-    def test_enum_rule(self) -> None:
-        values = ['Hi', 'there!', 42, None, unittest.TestCase]
-        rule = Enum(*values)
-
-        for value in values:
-            self.assertEqual((value, []), rule.validate(value))
-
-        for value in ['hello', list(range(42)), 4 * ' ']:
-            self.assertEqual(1, len(rule.validate(value)[1]))
-
-    def test_max_length_rule(self) -> None:
-        rule = MaxLength(3)
-
-        for value in ['hi!', 3 * ' ', [1, 2, 3], '', 'hi', 2 * ' ', [1, 2], []]:
-            self.assertEqual((value, []), rule.validate(value))
-
-        for value in ['hello', list(range(42)), 4 * ' ']:
-            self.assertEqual(1, len(rule.validate(value)[1]))
-
-    def test_min_length_rule(self) -> None:
-        rule = MinLength(3)
-
-        for value in ['hi!', 'hello', 3 * ' ', [1, 2, 3], list(range(42))]:
-            self.assertEqual((value, []), rule.validate(value))
-
-        for value in ['', 'hi', 2 * ' ', [1, 2], []]:
-            self.assertEqual(1, len(rule.validate(value)[1]))
-
-    def test_not_empty_rule(self) -> None:
+    @parameterized.expand([
+        ('exxasens', 'exxasens', None),
+        ('  exxasens   ', 'exxasens', None),
+        ('', '', ValueEmptyError),
+        (' ' * random.randint(2, 20), '', ValueEmptyError),
+    ])
+    def test_not_empty_rule(self, value, exp_val, exp_err) -> None:
         rule = NotEmpty()
+        if exp_err:
+            self.assertRaises(exp_err, rule.validate, value)
+        else:
+            self.assertEqual(rule.validate(value), exp_val)
 
-        for value in ['hi', '  v a  l   i d   ']:
-            self.assertEqual((value.strip(), []), rule.validate(value))
+    @parameterized.expand([
+        ('fred@web.de', None, ),
+        ('genial@gmail.com', None, ),
+        ('test@test.co.uk', None, ),
+        ('fred', None, ),
+        ('fred@web', ValueEmailError, ),
+        ('fred@w@eb.de', ValueEmailError, ),
+        ('fred@@web.de', ValueEmailError, ),
+        ('fred@@web.de', ValueEmailError, ),
+        ('invalid@invalid', ValueEmailError, ),
+    ])
+    def test_is_email_rule(self, value, exp_err) -> None:
+        self._assert_rule_error(IsEmail(), value, exp_err)
 
-        for value in ['', '   ', '         ']:
-            self.assertEqual(1, len(rule.validate(value)[1]))
-
-    def test_max_rule_include_boundary_true(self) -> None:
-        rule = Max(3, include_boundary=True)
-
-        for value in [-42, -2, -1, 0, 1, 2, 3]:
-            self.assertEqual((value, []), rule.validate(value))
-
-        for value in [4, 5, 6, 100]:
-            self.assertEqual(1, len(rule.validate(value)[1]))
-
-    def test_max_rule_include_boundary_false(self) -> None:
-        rule = Max(3, include_boundary=False)
-
-        for value in [-42, -2, -1, 0, 1, 2, 2.999]:
-            self.assertEqual((value, []), rule.validate(value))
-
-        for value in [3, 4, 5, 6, 100]:
-            self.assertEqual(1, len(rule.validate(value)[1]))
-
-    def test_min_rule_include_boundary_true(self) -> None:
-        rule = Min(4, include_boundary=True)
-
-        for value in [4, 5, 6, 100]:
-            self.assertEqual((value, []), rule.validate(value))
-
-        for value in [-42, -2, -1, 0, 1, 2, 3]:
-            self.assertEqual(1, len(rule.validate(value)[1]))
-
-    def test_min_rule_include_boundary_false(self) -> None:
-        rule = Min(4, include_boundary=False)
-
-        for value in [4.001, 5, 6, 100]:
-            self.assertEqual((value, []), rule.validate(value))
-
-        for value in [-42, -2, -1, 0, 1, 2, 3, 4]:
-            self.assertEqual(1, len(rule.validate(value)[1]))
-
-    def test_datetime_iso_invalide(self) -> None:
+    @parameterized.expand([
+        ('2021-01-02T03:04:05.450686Z', datetime(2021, 1, 2, 3, 4, 5, 450686)),
+        (
+            '2020-12-01T21:31:32.956214+02:00',
+            datetime(2020, 12, 1, 21, 31, 32, 956214, timezone(timedelta(seconds=7200))),
+        ),
+        (
+            '2020-12-01T21:31:32.956214-02:00',
+            datetime(2020, 12, 1, 21, 31, 32, 956214, timezone(timedelta(-1, seconds=79200))),
+        ),
+        ('2021-01-02', datetime(2021, 1, 2)),
+        ('2020-12-01T21:31:41', datetime(2020, 12, 1, 21, 31, 41)),
+        ('2020-12-01T21', datetime(2020, 12, 1, 21, 0, 0)),
+        ('2020-12-01T21:30', datetime(2020, 12, 1, 21, 30, 0)),
+        ('2020-12-01T', None),
+        ('2020-12', None),
+        ('2020', None),
+    ])
+    def test_datetime_iso_format_rule(self, value, exp_dt) -> None:
         rule = IsDatetimeIsoFormat()
-        now = datetime.now()
+        if exp_dt:
+            self.assertEqual(exp_dt, rule.validate(value))
+        else:
+            self.assertRaises(ValueDtIsoFormatError, rule.validate, value)
 
-        actual, errors = rule.validate(now.isoformat())
-        self.assertTrue(abs(now - actual) < timedelta(milliseconds=1))
-        self.assertEqual([], errors)
-
-        for value in ['invalid', '2020-01-1', '12.12.2020']:
-            self.assertEqual(1, len(rule.validate(value)[1]))
-
-    def test_datetime_iso_valid(self) -> None:
-        rule = IsDatetimeIsoFormat()
-        for dt_str, exp in (
-            ('2021-02-02T02:02:02.518993Z', datetime(2021, 2, 2, 2, 2, 2, 518993)),
-            ('2021-02-02T02:02:02.696969', datetime(2021, 2, 2, 2, 2, 2, 696969)),
-            (
-                '2022-03-03T03:03:03.518993+02:00',
-                datetime(2022, 3, 3, 3, 3, 3, 518993, timezone(timedelta(seconds=7200)))
-            ),
-            ('2023-04-04T05:05:05', datetime(2023, 4, 4, 5, 5, 5, )),
-        ):
-            self.assertEqual(rule.validate(dt_str)[0], exp)
-
-    def test_is_email_rule(self) -> None:
-        rule = IsEmail()
-
-        for value in ['fred@web.de', 'genial@gmail.com', 'test@test.co.uk']:
-            self.assertEqual((value, []), rule.validate(value))
-
-        for value in ['fred', 'fred@web', 'fred@w@eb.de', 'fred@@web.de', 'invalid@invalid']:
-            self.assertEqual(1, len(rule.validate(value)[1]))
+    @parameterized.expand([
+        ('2021-01-02', '%Y-%m-%d', datetime(2021, 1, 2), None),
+        ('2020-02-03 04:05:06', '%Y-%m-%d %H:%M:%S', datetime(2020, 2, 3, 4, 5, 6), None),
+        ('2020-0a-0b 04:05:06', '%Y-%m-%d %H:%M:%S', None, ValueDatetimeError),
+        ('2020-01-0z', '%Y-%m-%d', None, ValueDatetimeError),
+    ])
+    def test_datetime_rule(self, value, dt_format, dt, err):
+        rule = Datetime(dt_format)
+        if err:
+            self.assertRaises(ValueDatetimeError, rule.validate, value)
+        else:
+            self.assertEqual(dt, rule.validate(value))

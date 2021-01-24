@@ -1,16 +1,11 @@
 Flask Request Validator
 =======================
 
-Simply request validator for Flask.
-
-Docs: https://github.com/d-ganchar/flask_request_validator
-
+Simply request validator for Flask. See `readme`_
 
 Installation
 ------------
 
-How to install::
-
     $ pip install flask_request_validator
 
-
+.. _readme: https://github.com/d-ganchar/flask_request_validator

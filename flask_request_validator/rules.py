@@ -2,33 +2,28 @@ import re
 import sys
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Tuple, List, Any, Union, Iterable
+from typing import Iterable
 
-from .date_time_iso_format import datetime_from_iso_format
-from .decorators import overrides
+from .dt_utils import dt_from_iso
+from .exceptions import *
 
-ALLOWED_TYPES = (str, bool, int, float, dict, list)
 REGEX_EMAIL = r"[^@\s]+@[^@\s]+\.[a-zA-Z0-9]+$"
 
 
 class AbstractRule(ABC):
-
     @abstractmethod
-    def validate(self, value: Any) -> Tuple[Any, List[str]]:
+    def validate(self, value: Any) -> Any:
         """
-            Validate value and return a tuple of value and a list of errors.
-            The error list should be empty iff value is valid.
-            The returned value does not have to match the input value. Feel free to implement conversion logic.
+            The returned value does not have to match the input value.
+            Feel free to implement conversion logic.
 
             :param Any value:
-            :return: tuple of value and errors
-            :rtype: (Any, list of str)
+            :raises RuleError:
         """
         pass
 
 
 class CompositeRule(AbstractRule):
-
     def __init__(self, *rules: AbstractRule) -> None:
         self._rules = rules
 
@@ -36,91 +31,72 @@ class CompositeRule(AbstractRule):
         for rule in self._rules:
             yield rule
 
-    @overrides(AbstractRule)
-    def validate(self, value: Any) -> Tuple[Any, List[str]]:
+    def validate(self, value: Any) -> Any:
+        """
+        :raises RulesError:
+        """
         errors = []
-
+        new_value = value
         for rule in self._rules:
-            errors.extend(rule.validate(value=value)[1])
+            try:
+                new_value = rule.validate(value=value)
+            except RuleError as e:
+                errors.append(e)
 
-        return value, errors
+        if errors:
+            raise RulesError(*errors)
+        return new_value
 
 
 class Pattern(AbstractRule):
-
     def __init__(self, pattern: str) -> None:
         self._pattern = re.compile(pattern)
 
-    @overrides(AbstractRule)
-    def validate(self, value: str) -> Tuple[str, List[str]]:
-        errors = []
-
+    def validate(self, value: str) -> str:
         if not self._pattern.search(string=str(value)):
-            errors.append(f'Value "{value}" does not match pattern {self._pattern.pattern}')
-
-        return value, errors
+            raise ValuePatternError(self._pattern.pattern)
+        return value
 
 
 class Enum(AbstractRule):
-
-    def __init__(self, *allowed_values: List[Any]) -> None:
+    def __init__(self, *allowed_values: Any) -> None:
         self._allowed_values = allowed_values
 
-    @overrides(AbstractRule)
-    def validate(self, value: Any) -> Tuple[Any, List[str]]:
-        errors = []
-
+    def validate(self, value: Any) -> Any:
         if value not in self._allowed_values:
-            errors.append(f'Incorrect value "{value}". Allowed values: {self._allowed_values}')
-
-        return value, errors
+            raise ValueEnumError(self._allowed_values)
+        return value
 
 
 class MaxLength(AbstractRule):
-
     def __init__(self, length: int) -> None:
         self._length = length
 
-    @overrides(AbstractRule)
-    def validate(self, value: Union[Iterable, str]) -> Tuple[Union[str, Iterable], List[str]]:
-        errors = []
-
+    def validate(self, value: Union[Iterable, str]) -> Any:
         if len(value) > self._length:
-            errors.append(f'Invalid length for value "{value}". Max length = {self._length}')
-
-        return value, errors
+            raise ValueMaxLengthError(self._length)
+        return value
 
 
 class MinLength(AbstractRule):
-
-    @overrides(AbstractRule)
     def __init__(self, length: int) -> None:
         self._length = length
 
-    def validate(self, value: Union[Iterable, str]) -> Tuple[Union[str, Iterable], List[str]]:
-        errors = []
-
+    def validate(self, value: Union[Iterable, str]) -> Any:
         if len(value) < self._length:
-            errors.append(f'Invalid length for value "{value}". Min length = {self._length}')
-
-        return value, errors
+            raise ValueMinLengthError(self._length)
+        return value
 
 
 class NotEmpty(AbstractRule):
-
-    @overrides(AbstractRule)
-    def validate(self, value: str) -> Tuple[str, List[str]]:
-        errors = []
+    def validate(self, value: str) -> str:
         value = value.strip()
-
         if value == '':
-            errors.append('Got empty String which is invalid')
-
-        return value, errors
+            raise ValueEmptyError()
+        return value
 
 
 class Max(AbstractRule):
-
     def __init__(self, value: Union[int, float], include_boundary: bool = True) -> None:
         """
             >>> Max(7, True).validate(7)
@@ -133,20 +109,16 @@ class Max(AbstractRule):
         self._value = value
         self._include_boundary = include_boundary
 
-    @overrides(AbstractRule)
-    def validate(self, value: Union[int, float]) -> Tuple[Union[int, float], List[str]]:
-        errors = []
-
+    def validate(self, value: Union[int, float]) -> Union[int, float]:
         if value > self._value and self._include_boundary:
-            errors.append(f'greater then allowed: {value} is not <= {self._value}')
+            raise ValueMaxError(self._value, self._include_boundary)
         elif value >= self._value and not self._include_boundary:
-            errors.append(f'greater then allowed: {value} is not < {self._value}')
+            raise ValueMaxError(self._value, self._include_boundary)
 
-        return value, errors
+        return value
 
 
 class Min(AbstractRule):
-
     def __init__(self, value: Union[int, float], include_boundary: bool = True) -> None:
         """
             >>> Min(7, True).validate(7)
@@ -159,44 +131,42 @@ class Min(AbstractRule):
         self._value = value
         self._include_boundary = include_boundary
 
-    @overrides(AbstractRule)
-    def validate(self, value: Union[int, float]) -> Tuple[Union[int, float], List[str]]:
-        errors = []
-
+    def validate(self, value: Union[int, float]) -> Union[int, float]:
         if value < self._value and self._include_boundary:
-            errors.append(f'smaller then allowed: {value} is not >= {self._value}')
+            raise ValueMinError(self._value, self._include_boundary)
         elif value <= self._value and not self._include_boundary:
-            errors.append(f'smaller then allowed: {value} is not > {self._value}')
-
-        return value, errors
+            raise ValueMinError(self._value, self._include_boundary)
+        return value
 
 
 class IsDatetimeIsoFormat(AbstractRule):
-
-    @overrides(AbstractRule)
-    def validate(self, value: str) -> Tuple[Union[str, datetime], List[str]]:
-        error = f'invalid value: {value} is not a datetime in ISO format'
-        if len(value) < 10:
-            return value, [error]
-
+    def validate(self, value: str) -> datetime:
         try:
             if sys.version_info >= (3, 7):
                 value = datetime.fromisoformat(value[:-1] if value.endswith('Z') else value)
             else:
-                value = datetime_from_iso_format(value[:-1] if value.endswith('Z') else value)
+                value = dt_from_iso(value[:-1] if value.endswith('Z') else value)
         except (TypeError, ValueError, AttributeError):
-            return value, [error]
-
-        return value, []
+            raise ValueDtIsoFormatError()
+        return value
 
 
 class IsEmail(AbstractRule):
-
-    @overrides(AbstractRule)
-    def validate(self, value: str) -> Tuple[str, List[str]]:
-        errors = []
-
+    def validate(self, value: str) -> str:
         if not re.fullmatch(pattern=REGEX_EMAIL, string=value):
-            errors.append(f'invalid email address: {value}')
+            raise ValueEmailError()
+        return value
 
-        return value, errors
+
+class Datetime(AbstractRule):
+    def __init__(self, dt_format: str) -> None:
+        self._dt_format = dt_format
+
+    def validate(self, value: str) -> datetime:
+        """
+        :raises ValueDatetimeError:
+        """
+        try:
+            return datetime.strptime(value, self._dt_format)
+        except ValueError:
+            raise ValueDatetimeError(self._dt_format)
