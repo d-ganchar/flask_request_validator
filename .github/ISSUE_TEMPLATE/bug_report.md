@@ -1,22 +1,21 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-title: BUG
+title: 'BUG:'
 labels: bug
 assignees: ''
 
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**Description**
+describe the problem here...
 
 **To Reproduce**
-Add `route` and `cURL` request
+`route` and `cURL` request or `python` code here...
 
 **Environment**
- - `flask_request_validator` version
- - `python` version
- - `Flask` version
+ - `flask_request_validator` version_here
+ - `python` version_here
 
 **Expected behavior**
-A clear and concise description of what you expected to happen.
+expected result here...

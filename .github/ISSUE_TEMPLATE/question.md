@@ -1,14 +1,10 @@
 ---
 name: Question
 about: Question about flask_request_validator
-title: QSTN
+title: 'QSTN:'
 labels: question
-assignees: ''
+assignees: d-ganchar
 
 ---
 
-- [ ] I read [doc](https://github.com/d-ganchar/flask_request_validator/blob/master/README.md) 
 
----
-
-Question
