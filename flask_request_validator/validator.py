@@ -131,7 +131,7 @@ class Param:
         if value is None:
             if self.required:
                 raise RequiredValueError()
-            if self.default:
+            if self.default or self.default == 0:
                 if isinstance(self.default, types.LambdaType):
                     value = self.default()
                 else:
