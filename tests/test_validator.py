@@ -314,6 +314,15 @@ class TestParam(TestCase):
     def test_value_to_type(self, param, expected, value):
         self.assertEqual(param.value_to_type(value), expected)
 
+    @parameterized.expand([
+        (Param('test', GET, int, required=False, default=0), 0, '0'),
+        (Param('test', GET, str, required=False, default=''), '', ''),
+        (Param('test', GET, bool, required=False, default=False), False, 'False'),
+        (Param('test', GET, list, required=False, default=[]), [], []),
+    ])
+    def test_default_value(self, param, expected, value):
+        self.assertEqual(param.value_to_type(value), expected)
+
 
 _app2 = flask.Flask(__name__)
 

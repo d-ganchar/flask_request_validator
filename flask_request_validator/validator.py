@@ -86,14 +86,16 @@ class Param:
         :raises TypeConversionError:
         """
         if self.value_type == bool:
-            low_val = value.lower()
+            if isinstance(value, str):
+                low_val = value.lower()
 
-            if low_val in ('true', '1'):
-                value = True
-            elif low_val in ('false', '0'):
-                value = False
+                if low_val in ('true', '1'):
+                    value = True
+                elif low_val in ('false', '0'):
+                    value = False
         elif self.value_type == list:
-            value = [item.strip() for item in value.split(',')]
+            if value:
+                value = [item.strip() for item in value.split(',')]
         elif self.value_type == dict:
             value = {
                 item.split(':')[0].strip(): item.partition(':')[-1].strip()
@@ -131,7 +133,7 @@ class Param:
         if value is None:
             if self.required:
                 raise RequiredValueError()
-            if self.default:
+            if self.default or self.default == 0 or self.default == [] or self.default == '' or self.default is False:
                 if isinstance(self.default, types.LambdaType):
                     value = self.default()
                 else:
