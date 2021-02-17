@@ -94,8 +94,7 @@ class Param:
                 elif low_val in ('false', '0'):
                     value = False
         elif self.value_type == list:
-            if value:
-                value = [item.strip() for item in value.split(',')]
+            value = [item.strip() for item in value.split(',')]
         elif self.value_type == dict:
             value = {
                 item.split(':')[0].strip(): item.partition(':')[-1].strip()
@@ -133,7 +132,7 @@ class Param:
         if value is None:
             if self.required:
                 raise RequiredValueError()
-            if self.default or self.default == 0 or self.default == [] or self.default == '' or self.default is False:
+            if self.default or self.default == 0 or self.default == [] or self.default == '' or self.default is False or self.default == {}:
                 if isinstance(self.default, types.LambdaType):
                     value = self.default()
                 else:
@@ -190,8 +189,9 @@ def __get_request_errors(
 
         try:
             value = param.get_value_from_request()
-            value = param.value_to_type(value)
-            value = param.rules.validate(value)
+            if value:
+                value = param.value_to_type(value)
+                value = param.rules.validate(value)
             valid.set_value(param.param_type, param.name, value)
         except (RequiredValueError, TypeConversionError, RulesError) as error:
             errors[param.param_type][param.name] = error
