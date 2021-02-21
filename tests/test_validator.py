@@ -314,14 +314,35 @@ class TestParam(TestCase):
     def test_value_to_type(self, param, expected, value):
         self.assertEqual(param.value_to_type(value), expected)
 
-    @parameterized.expand([
-        (Param('test', GET, int, required=False, default=0), 0, '0'),
-        (Param('test', GET, str, required=False, default=''), '', ''),
-        (Param('test', GET, bool, required=False, default=False), False, 'False'),
-        (Param('test', GET, list, required=False, default=[]), [], []),
-    ])
-    def test_default_value(self, param, expected, value):
-        self.assertEqual(param.value_to_type(value), expected)
+
+@_app.route('/test_default', methods=['POST'])
+@validate_params(
+    Param('test_0', GET, int, required=False, default=0),
+    Param('test_str', GET, str, required=False, default=''),
+    Param('test_false', GET, bool, required=False, default=False),
+    Param('test_list', GET, list, required=False, default=[]),
+    Param('test_none', GET, str, required=False),
+    Param('test_dict', GET, dict, required=False, default={})
+)
+def default_value(valid):
+    params = valid.get_params()
+    return flask.jsonify(params)
+
+
+class TestDefault(TestCase):
+    def test_default_value(self):
+        with _app.test_client() as client:
+            response = client.post('/test_default')
+            response_data = json.loads(response.data)
+            expected = {
+                'test_0': 0,
+                'test_dict': {},
+                'test_false': False,
+                'test_list': [],
+                'test_none': None,
+                'test_str': ''
+            }
+            self.assertEqual(response_data, expected)
 
 
 _app2 = flask.Flask(__name__)
