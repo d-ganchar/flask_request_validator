@@ -339,8 +339,7 @@ class TestDefault(TestCase):
                 'test_dict': {},
                 'test_false': False,
                 'test_list': [],
-                'test_none': None,
-                'test_str': ''
+                'test_str': '',
             }
             self.assertEqual(response_data, expected)
 
