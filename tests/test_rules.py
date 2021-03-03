@@ -58,7 +58,8 @@ class TestRules(unittest.TestCase):
 
     @parameterized.expand([
         ('mammal hands', MinLength(11), MaxLength(13), None),
-        ('mammal hands', MinLength(11), MaxLength(13), ValueMinError),
+        ('', MinLength(3), MaxLength(5), ValueMinLengthError),
+        ('mammal hands', MinLength(11), MaxLength(13), ValueMinLengthError),
         ('#mammal hands#', MinLength(11), MaxLength(13), ValueMaxLengthError),
     ])
     def test_min_max_length_rule(self, value, min_l, max_l, exp):

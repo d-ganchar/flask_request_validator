@@ -129,14 +129,8 @@ class Param:
         elif self.param_type == HEADER:
             value = request.headers.get(self.name)
 
-        if value is None:
-            if self.required:
-                raise RequiredValueError()
-            if self.default or self.default == 0 or self.default == [] or self.default == '' or self.default is False or self.default == {}:
-                if isinstance(self.default, types.LambdaType):
-                    value = self.default()
-                else:
-                    value = self.default
+        if value is None and self.required:
+            raise RequiredValueError()
         return value
 
 
@@ -189,10 +183,17 @@ def __get_request_errors(
 
         try:
             value = param.get_value_from_request()
-            if value:
+            if value is not None:
                 value = param.value_to_type(value)
                 value = param.rules.validate(value)
-            valid.set_value(param.param_type, param.name, value)
+                valid.set_value(param.param_type, param.name, value)
+                continue
+
+            if param.default is not None:
+                if isinstance(param.default, types.LambdaType):
+                    valid.set_value(param.param_type, param.name, param.default())
+                else:
+                    valid.set_value(param.param_type, param.name, param.default)
         except (RequiredValueError, TypeConversionError, RulesError) as error:
             errors[param.param_type][param.name] = error
             continue
