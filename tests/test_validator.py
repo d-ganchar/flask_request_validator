@@ -347,7 +347,7 @@ class TestDefault(TestCase):
 _app2 = flask.Flask(__name__)
 
 
-@_app2.errorhandler(InvalidRequestError)
+@_app2.errorhandler(RequestError)
 def handler(e):
     return flask.jsonify(demo_error_formatter(e)), 400
 
@@ -482,3 +482,80 @@ class TestNestedJson(TestCase):
             response = client.post('/', data=json.dumps(data), content_type='application/json')
             self.assertEqual(response.status, status)
             self.assertEqual(response.json, expected)
+
+
+class ExampleAfterParam(AbstractAfterParam):
+    def validate(self, value: ValidRequest) -> Any:
+        errors = []
+        prev_date = None
+        for item in value.get_json()['dates']:
+            date = item.date()
+            if prev_date and date < prev_date:
+                errors.append('{d1} < {d2}'.format(d1=date, d2=prev_date))
+                continue
+            prev_date = date
+        if errors:
+            raise AfterParamError('|'.join(errors))
+
+
+@_app2.route('/after_param', methods=['POST'])
+@validate_params(
+    JsonParam({
+        'dates': JsonParam([Datetime('%Y-%m-%d'), ], as_list=True),
+    }),
+    ExampleAfterParam(),
+)
+def after_param(valid: ValidRequest):
+    return flask.jsonify([str(d.date()) for d in valid.get_json()['dates']])
+
+
+class TestAfterParam(TestCase):
+    maxDiff = 2000
+
+    @parameterized.expand([
+        (
+            ['2021-01-01', '2021-01-'],
+            [{'errors': [
+                {'list_items': {'1': 'expected a datetime in %Y-%m-%d format'},
+                 'path': 'root|dates'}], 'message': 'invalid JSON parameters'}]
+        ),
+        (
+            ['2021'],
+            [{'errors': [{'list_items': {'0': 'expected a datetime in %Y-%m-%d format'},
+                         'path': 'root|dates'}],
+             'message': 'invalid JSON parameters'}]
+        ),
+        # valid
+        (
+            ['2021-01-01', '2021-01-02', '2021-01-03', '2021-01-04'],
+            ['2021-01-01', '2021-01-02', '2021-01-03', '2021-01-04'],
+        ),
+    ])
+    def test_after_param_rules(self, dates, expected):
+        with _app2.test_client() as client:
+            result = client.post(
+                '/after_param',
+                data=json.dumps({'dates': dates}),
+                content_type='application/json',
+            ).json
+
+            self.assertEqual(result, expected)
+
+    @parameterized.expand([
+        # valid
+        (
+            ['2021-01-01', '2021-01-02', '2021-01-03', '2021-01-04'],
+            ['2021-01-01', '2021-01-02', '2021-01-03', '2021-01-04'],
+        ),
+        # invalid
+        (['2021-01-01', '2021-01-02', '2021-01-03', '2021-01-01'], ['2021-01-01 < 2021-01-03']),
+        (['2021-01-10', '2021-01-01', ], ['2021-01-01 < 2021-01-10']),
+    ])
+    def test_after_params(self, dates, expected):
+        with _app2.test_client() as client:
+            data = client.post(
+                '/after_param',
+                data=json.dumps({'dates': dates}),
+                content_type='application/json',
+            ).json
+            self.assertEqual(data, expected)

@@ -7,6 +7,10 @@ class RequestError(Exception):
     """
 
 
+class AfterParamError(RequestError):
+    pass
+
+
 class WrongUsageError(RequestError):
     pass
 

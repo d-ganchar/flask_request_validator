@@ -4,6 +4,7 @@ from typing import Tuple
 
 from flask import request
 
+from .after_param import AbstractAfterParam
 from .exceptions import *
 from .rules import CompositeRule
 from .valid_request import ValidRequest
@@ -134,7 +135,7 @@ class Param:
         return value
 
 
-def validate_params(*params: Union[JsonParam, Param]):
+def validate_params(*params: Union[JsonParam, Param, AbstractAfterParam]):
     """
     :raises InvalidHeadersError:
         When found invalid headers. Raises before other params validation
@@ -144,10 +145,12 @@ def validate_params(*params: Union[JsonParam, Param]):
     def validate_request(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            header_params, other_params = (), ()
+            header_params, other_params, after_params = (), (), ()
             for param in params:
                 if isinstance(param, Param) and param.param_type == HEADER:
                     header_params += (param, )
+                elif isinstance(param, AbstractAfterParam):
+                    after_params += (param, )
                 else:
                     other_params += (param, )
 
@@ -161,6 +164,9 @@ def validate_params(*params: Union[JsonParam, Param]):
                 if type_errors:
                     raise InvalidRequestError(errors[GET], errors[FORM],
                                               errors[PATH], errors[JSON])
+            for param in after_params:
+                param.validate(valid)
+
             args += (valid, )
             return func(*args, **kwargs)
         return wrapper
