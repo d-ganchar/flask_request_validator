@@ -123,6 +123,11 @@ class ValueEmailError(RuleError):
         return 'invalid email address'
 
 
+class NumberError(RuleError):
+    def __str__(self) -> str:
+        return 'expected number'
+
+
 class ValueDatetimeError(RuleError):
     def __init__(self, dt_format: str) -> None:
         self.dt_format = dt_format

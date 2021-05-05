@@ -23,4 +23,5 @@ from .rules import (
     NotEmpty,
     Pattern,
     Datetime,
+    Number,
 )
