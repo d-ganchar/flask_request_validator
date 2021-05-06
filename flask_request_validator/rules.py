@@ -1,5 +1,6 @@
 import re
 import sys
+import numbers
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Iterable
@@ -163,10 +164,14 @@ class Datetime(AbstractRule):
         self._dt_format = dt_format
 
     def validate(self, value: str) -> datetime:
-        """
-        :raises ValueDatetimeError:
-        """
         try:
             return datetime.strptime(value, self._dt_format)
         except ValueError:
             raise ValueDatetimeError(self._dt_format)
+
+
+class Number(AbstractRule):
+    def validate(self, value: Any) -> Any:
+        if not isinstance(value, numbers.Number):
+            raise NumberError
+        return value

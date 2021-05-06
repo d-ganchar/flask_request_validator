@@ -2,11 +2,11 @@ from .validator import JSON, FORM, PATH, GET
 from .exceptions import *
 
 
-def demo_error_formatter(error: Union[InvalidRequestError, InvalidHeadersError]) -> list:
+def demo_error_formatter(error: Union[InvalidRequestError, InvalidHeadersError, AfterParamError]) -> list:
     """
     Just demo. !!! not supported !!!
     """
-    if isinstance(error, InvalidHeadersError):
+    if isinstance(error, (InvalidHeadersError, AfterParamError)):
         return [str(error)]
 
     result = []

@@ -130,3 +130,19 @@ class TestRules(unittest.TestCase):
             self.assertRaises(ValueDatetimeError, rule.validate, value)
         else:
             self.assertEqual(dt, rule.validate(value))
+
+    @parameterized.expand([
+        (1.0000000000000001e-21, 1.0000000000000001e-21),
+        (2, 2),
+        (3.04, 3.04),
+        ('3o1', None),
+        ('', None),
+        ([], None),
+        ({}, None),
+    ])
+    def test_number_rule(self, value, expected):
+        rule = Number()
+        if expected:
+            self.assertEqual(expected, rule.validate(value))
+        else:
+            self.assertRaises(NumberError, rule.validate, value)

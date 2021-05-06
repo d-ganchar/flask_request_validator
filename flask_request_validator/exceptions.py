@@ -7,6 +7,10 @@ class RequestError(Exception):
     """
 
 
+class AfterParamError(RequestError):
+    pass
+
+
 class WrongUsageError(RequestError):
     pass
 
@@ -117,6 +121,11 @@ class ValueDtIsoFormatError(RuleError):
 class ValueEmailError(RuleError):
     def __str__(self) -> str:
         return 'invalid email address'
+
+
+class NumberError(RuleError):
+    def __str__(self) -> str:
+        return 'expected number'
 
 
 class ValueDatetimeError(RuleError):
