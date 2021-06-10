@@ -24,4 +24,5 @@ from .rules import (
     Pattern,
     Datetime,
     Number,
+    REGEX_EMAIL,
 )
