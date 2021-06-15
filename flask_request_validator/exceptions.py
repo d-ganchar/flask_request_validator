@@ -22,6 +22,19 @@ class JsonError(RequestError):
         self.as_list = as_list
 
 
+class JsonListExpectedError(JsonError):
+    def __init__(self, depth: List[str]):
+        self.depth = depth
+
+    def __str__(self) -> str:
+        return 'list type expected'
+
+
+class JsonDictExpectedError(JsonListExpectedError):
+    def __str__(self) -> str:
+        return 'dict type expected'
+
+
 class JsonListItemTypeError(RequestError):
     """
     Raises when invalid type of list item.

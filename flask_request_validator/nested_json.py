@@ -4,7 +4,7 @@ from .exceptions import (
     JsonError,
     RequiredJsonKeyError,
     JsonListItemTypeError,
-    RulesError,
+    RulesError, JsonListExpectedError, JsonDictExpectedError,
 )
 from .rules import CompositeRule, AbstractRule
 
@@ -62,9 +62,11 @@ class JsonParam:
                 continue
 
             if isinstance(node, dict):
-                value, errors, rules_err = self._validate_dict(node, nested, depth, errors)
+                item_value, errors, rules_err = self._validate_dict(node, nested, depth, errors)
                 if rules_err:
                     n_err[ix] = rules_err
+                else:
+                    value[ix] = item_value
                 continue
 
             try:
@@ -121,6 +123,12 @@ class JsonParam:
         if isinstance(rule, JsonParam) and rule.required and key not in value:
             raise RequiredJsonKeyError(key)
 
+    def _check_as_list_value(self, nested: 'JsonParam', value: Any, depth: list):
+        if nested.as_list and not isinstance(value, list):
+            raise JsonListExpectedError(depth)
+        if not nested.as_list and not isinstance(value, dict):
+            raise JsonListExpectedError(depth)
+
     def validate(
         self,
         value: Union[Dict, List],
@@ -132,16 +140,23 @@ class JsonParam:
         errors = errors or []
         node_errors = dict()
         nested = nested or self
-        if isinstance(nested.rules_map, dict) and not nested.as_list:
+
+        try:
+            self._check_as_list_value(nested, value, depth)
+        except (JsonListExpectedError, JsonDictExpectedError) as e:
+            errors.append(e)
+            return value, errors
+
+        if nested.as_list:
+            value, errors = self._validate_list(value, nested, depth, errors)
+            return value, errors
+
+        if isinstance(nested.rules_map, dict):
             for key, rule in nested.rules_map.items():
                 try:
                     self._check_required(key, value, rule)
                 except RequiredJsonKeyError as e:
                     node_errors[key] = e
-
-        if nested.as_list:
-            value, errors = self._validate_list(value, nested, depth, errors)
-            return value, errors
 
         value, errors, nested_errors = self._validate_dict(value, nested, depth, errors)
         node_errors.update(nested_errors)

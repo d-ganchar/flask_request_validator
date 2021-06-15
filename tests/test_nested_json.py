@@ -1,8 +1,10 @@
 import unittest
+from copy import deepcopy
+
 from parameterized import parameterized
 
 from flask_request_validator.exceptions import *
-from flask_request_validator import JsonParam, Enum, CompositeRule, Min, Max, IsEmail
+from flask_request_validator import JsonParam, Enum, CompositeRule, Min, Max, IsEmail, Number, MinLength
 
 
 class TestJsonParam(unittest.TestCase):
@@ -202,3 +204,69 @@ class TestJsonParam(unittest.TestCase):
                     else:
                         # RulesError
                         self.assertTrue(isinstance(json_er.errors[rules_ix], rules_err))
+
+    @parameterized.expand([
+        (
+            [
+                {'age': 10, 'name': 'test'},
+                {'age': 20, 'name': 'test2'},
+                {'age': 30, 'name': 'test3'},
+            ],
+        ),
+        (
+            [
+                {'age': 10, 'name': 'test', 'tags': [{'name': 'green'}, {'name': 'light'}]},
+                {'age': 20, 'name': 'test2'},
+                {'age': 30, 'name': 'test3', 'tags': [{'name': 'cat'}, {'name': 'dog'}]},
+            ],
+        ),
+    ])
+    def test_root_list_valid(self, value):
+        param = JsonParam({
+            'age': [Number()],
+            'name': [MinLength(1), ],
+            'tags': JsonParam({'name': [MinLength(1)]}, required=False, as_list=True)
+        }, as_list=True)
+
+        valid_value, errors = param.validate(deepcopy(value))
+        self.assertListEqual(value, valid_value)
+        self.assertEqual(0, len(errors))
+
+    def test_root_list_invalid(self):
+        param = JsonParam({
+            'age': [Number()],
+            'name': [MinLength(1), ],
+            'tags': JsonParam({'name': [MinLength(1)]}, required=False, as_list=True)
+        }, as_list=True)
+        # invalid values
+        _, errors = param.validate([
+            {'age': 'ab', 'name': 'test'},
+            {'age': 'c', 'name': ''},
+            {'age': 15, 'name': 'good'},
+        ])
+
+        self.assertEqual(1, len(errors))
+        self.assertTrue(isinstance(errors[0], JsonError))
+        error = errors[0]
+        self.assertListEqual(['root'], error.depth)
+        self.assertTrue(2, len(error.errors))
+        self.assertTrue(error.errors[0], 1)
+        self.assertTrue(error.errors[1], 2)
+
+        self.assertTrue(isinstance(error.errors[0]['age'].errors[0], NumberError))
+        self.assertTrue(isinstance(error.errors[1]['age'].errors[0], NumberError))
+        self.assertTrue(isinstance(error.errors[1]['name'].errors[0], ValueMinLengthError))
+        # invalid type - dict instead list
+        _, errors = param.validate({'age': 18, 'name': 'test'})
+        self.assertEqual(1, len(errors))
+        self.assertListEqual(['root'], errors[0].depth)
+        self.assertTrue(isinstance(errors[0], JsonListExpectedError))
+        # invalid type - nested string instead list
+        _, errors = param.validate([
+            {'age': 27, 'name': 'test'},
+            {'age': 15, 'name': 'good', 'tags': 'bad_type'},
+        ])
+
+        self.assertEqual(1, len(errors))
+        self.assertListEqual(['root', 'tags'], errors[0].depth)
+        self.assertTrue(isinstance(errors[0], JsonListExpectedError))
