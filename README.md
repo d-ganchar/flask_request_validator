@@ -18,6 +18,7 @@ Key features
 - Header, GET, FORM and nested JSON validation
 - Post validation hooks
 - Custom error messages
+- Flask v2 / v1 support
 - Supports [Flask-RESTful](https://flask-restful.readthedocs.io/en/latest/)
 - Python 2.7 / 3.5 supported up to v3.0
 
@@ -28,6 +29,5 @@ $ pip install flask_request_validator
 ```
 
 <p style="text-align:center">
-    <a href="https://github.com/d-ganchar/flask_request_validator/wiki">How to use</a> | 
-    <a href="https://github.com/d-ganchar/flask_request_validator/wiki#here-are-my-wallets-if-youd-like-to-say-thanks-%EF%B8%8F">say thanks ❤</a>
+    <a href="https://github.com/d-ganchar/flask_request_validator/wiki">How to use</a>
 </p>
