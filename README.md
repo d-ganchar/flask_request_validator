@@ -1,5 +1,7 @@
 ## Flask request validator
 
+[![Slava Ukraini](https://img.shields.io/badge/Slava-Ukraini-FFD500?style=flat&labelColor=005BBB)](https://bank.gov.ua/en/news/all/natsionalniy-bank-vidkriv-spetsrahunok-dlya-zboru-koshtiv-na-potrebi-armiyi) [![Support Ukraine](https://img.shields.io/badge/Support-Ukraine-FFD500?style=flat&labelColor=005BBB)](https://opensource.fb.com/support-ukraine)
+
 [![PyPI version](https://img.shields.io/pypi/v/flask_request_validator.svg?logo=pypi&logoColor=FFE200)](https://pypi.org/project/flask-request-validator/)
 [![Python versions](https://img.shields.io/pypi/pyversions/flask_request_validator.svg?logo=python&logoColor=81B441)](https://pypi.org/project/flask-request-validator/)
 [![Build Status](https://img.shields.io/travis/d-ganchar/flask_request_validator/master?label=Travis%20CI&logo=travis)](https://www.travis-ci.com/github/d-ganchar/flask_request_validator)
