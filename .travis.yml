@@ -1,15 +1,19 @@
 language: python
+dist: focal
 python:
   - "3.6"
   - "3.7"
   - "3.8"
   - "3.9"
+  - "3.10"
+  - "3.11"
 
 notifications:
   email: false
 
 install:
+  - pip install -U importlib_metadata
   - pip install -r requirements.txt
 
-script: nosetests --with-coverage --cover-package=flask_request_validator --exe ./tests
+script: pytest --cov=flask_request_validator tests/
 after_success: coveralls
