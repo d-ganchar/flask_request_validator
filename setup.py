@@ -6,7 +6,7 @@ with io.open('README.rst', 'rt', encoding='utf8') as f:
 
 setup(
     name='flask_request_validator',
-    version='4.2.1',
+    version='4.2.2',
     description='Flask request data validation',
     long_description=long_description,
     url='https://github.com/d-ganchar/flask_request_validator',

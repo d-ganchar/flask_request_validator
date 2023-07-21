@@ -154,6 +154,14 @@ class ListRuleError(RuleError):
         self.errors = errors
 
 
+class MissingJsonKeyError(RuleError):
+    def __init__(self, key: str) -> None:
+        self.key = key
+
+    def __str__(self) -> str:
+        return 'key is required'
+
+
 class RulesError(RequestError):
     def __init__(self, *args: RuleError):
         self.errors = args

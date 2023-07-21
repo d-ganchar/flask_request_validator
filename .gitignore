@@ -94,3 +94,7 @@ ENV/
 # Rope project settings
 .ropeproject
 .idea/
+
+# debug files
+debug.py
+app.py
