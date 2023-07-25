@@ -4,7 +4,10 @@ from .exceptions import (
     JsonError,
     RequiredJsonKeyError,
     JsonListItemTypeError,
-    RulesError, JsonListExpectedError, JsonDictExpectedError,
+    RulesError,
+    JsonListExpectedError,
+    JsonDictExpectedError,
+    MissingJsonKeyError,
 )
 from .rules import CompositeRule, AbstractRule
 
@@ -45,6 +48,17 @@ class JsonParam:
             return
         if isinstance(nested.rules_map, dict) and not isinstance(value, dict):
             raise JsonListItemTypeError()
+
+    def _is_missing_json_key(self, key: str, value: Dict, nested: 'JsonParam'):
+        rules = nested.rules_map.get(key)
+        if isinstance(rules, JsonParam) and not rules.required:
+            return
+
+        try:
+            if key not in value:
+                raise MissingJsonKeyError(key)
+        except MissingJsonKeyError as error:
+            raise RulesError(error)
 
     def _validate_list(
         self,
@@ -101,18 +115,26 @@ class JsonParam:
         errors: List[JsonError],
     ) -> Tuple[Any, List[JsonError], Dict[str, RulesError]]:
         err = dict()
-        for key, rules in nested.rules_map.items():
-            if key not in value:
-                continue
-            elif isinstance(rules, JsonParam):
-                new_val, errors = self.validate(value[key], rules, depth + [key], errors)
-                continue
 
+        for key, rules in nested.rules_map.items():
             try:
-                new_val = rules.validate(value[key])
-                value[key] = new_val
+                self._is_missing_json_key(key, value, nested)
             except RulesError as e:
                 err[key] = e
+                continue
+
+            key_value = value.get(key)
+            if isinstance(rules, JsonParam):
+                if key_value is None and not nested.rules_map[key].required:
+                    continue
+
+                new_val, errors = self.validate(key_value, rules, depth + [key], errors)
+            else:
+                try:
+                    new_val = rules.validate(key_value)
+                    value[key] = new_val
+                except RulesError as e:
+                    err[key] = e
 
         return value, errors, err
 

@@ -375,6 +375,21 @@ def home(valid: ValidRequest):
     return flask.jsonify({'json': valid.get_json()})
 
 
+@_app2.route('/issue/82', methods=['POST'])
+@validate_params(
+    JsonParam(
+        {
+            'namespace': [MinLength(1), MaxLength(255)],
+            'key': [MinLength(1), MaxLength(255)],
+            'value': [MaxLength(255)],
+        },
+        as_list=True,
+    )
+)
+def issue_82(valid: ValidRequest):
+    return flask.jsonify({'json': valid.get_json()})
+
+
 class TestNestedJson(TestCase):
     maxDiff = 2000
 
@@ -432,8 +447,11 @@ class TestNestedJson(TestCase):
                     'bands': [
                         {
                             'name': 'Metallica',
-                            'details': {'details': 'Los Angeles, California, U.S.',
-                                        'status': 'active'},
+                            'details': {
+                                'details': 'Los Angeles, California, U.S.',
+                                'description': 'very long description',
+                                'status': 'active',
+                            },
                             'persons': [
                                 {'name': 'James Hetfield'},
                                 {'name': 'Lars Ulrich'},
@@ -443,7 +461,11 @@ class TestNestedJson(TestCase):
                         },
                         {
                             'name': 'AC/DC',
-                            'details': {'details': 'Sydney, Australia', 'status': 'active'},
+                            'details': {
+                                'details': 'Sydney, Australia',
+                                'status': 'active',
+                                'description': 'positive',
+                            },
                             'persons': [
                                 {'name': 'Angus Young'},
                                 {'name': 'Stevie Young'},
@@ -459,17 +481,35 @@ class TestNestedJson(TestCase):
                 'json': {
                     'island': 'valid', 'iso': '2021-01-02', 'music': {
                         'bands': [
-                            {'details': {'details': 'Los Angeles, California, U.S.',
-                                         'status': 'active'},
-                             'name': 'Metallica',
-                             'persons': [{'name': 'James Hetfield'}, {'name': 'Lars Ulrich'},
-                                         {'name': 'Kirk Hammett'}, {'name': 'Robert Trujillo'}]},
-                            {'details': {'details': 'Sydney, Australia', 'status': 'active'},
-                             'name': 'AC/DC',
-                             'persons': [{'name': 'Angus Young'}, {'name': 'Stevie Young'},
-                                         {'name': 'Brian Johnson'}, {'name': 'Phil Rudd'},
-                                         {'name': 'Cliff Williams'}]
-                             }
+                            {
+                                'name': 'Metallica',
+                                'details': {
+                                    'details': 'Los Angeles, California, U.S.',
+                                    'description': 'very long description',
+                                    'status': 'active',
+                                },
+                                'persons': [
+                                    {'name': 'James Hetfield'},
+                                    {'name': 'Lars Ulrich'},
+                                    {'name': 'Kirk Hammett'},
+                                    {'name': 'Robert Trujillo'},
+                                ]
+                            },
+                            {
+                                'name': 'AC/DC',
+                                'details': {
+                                    'details': 'Sydney, Australia',
+                                    'status': 'active',
+                                    'description': 'positive',
+                                },
+                                'persons': [
+                                    {'name': 'Angus Young'},
+                                    {'name': 'Stevie Young'},
+                                    {'name': 'Brian Johnson'},
+                                    {'name': 'Phil Rudd'},
+                                    {'name': 'Cliff Williams'},
+                                ],
+                             },
                         ]
                     }
                 }
@@ -482,6 +522,67 @@ class TestNestedJson(TestCase):
             response = client.post('/', data=json.dumps(data), content_type='application/json')
             self.assertEqual(response.status, status)
             self.assertEqual(response.json, expected)
+
+    @parameterized.expand([
+        (
+            [{'key': 'testKey', 'value': 'testValue'}],
+            [{
+                'errors': [{'list_items': {'0': {'namespace': 'key is required'}}, 'path': 'root'}],
+                'message': 'invalid JSON parameters',
+            }],
+        ),
+        (
+            [{}, {'unknown_field': 'value'}],
+            [
+                {
+                    'errors': [
+                        {
+                            'list_items': {
+                                '0': {
+                                    'key': 'key is required',
+                                    'namespace': 'key is required',
+                                    'value': 'key is required',
+                                },
+                                '1': {
+                                    'key': 'key is required',
+                                    'namespace': 'key is required',
+                                    'value': 'key is required',
+                                },
+                            },
+                            'path': 'root',
+                        },
+                    ],
+                    'message': 'invalid JSON parameters',
+                },
+            ],
+        )
+    ])
+    def test_issue_82_negative(self, data, expected):
+        with _app2.test_client() as client:
+            response = client.post('/issue/82', data=json.dumps(data), content_type='application/json')
+            self.assertEqual(response.status, '400 BAD REQUEST')
+            self.assertEqual(response.json, expected)
+
+    def test_issue_82_positive(self):
+        with _app2.test_client() as client:
+            response = client.post(
+                '/issue/82',
+                data=json.dumps([
+                    dict(namespace='movies', key='science fiction', value='stranger things'),
+                    dict(namespace='music', key='downtempo,chill-out,dub,lounge', value='thievery corporation'),
+                ]),
+                content_type='application/json',
+            )
+
+            self.assertEqual(response.status, '200 OK')
+            self.assertEqual(
+                response.json,
+                dict(
+                    json=[
+                        dict(key='science fiction', namespace='movies', value='stranger things'),
+                        dict(key='downtempo,chill-out,dub,lounge', namespace='music', value='thievery corporation'),
+                    ]
+                ))
 
 
 class ExampleAfterParam(AbstractAfterParam):
