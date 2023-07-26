@@ -23,7 +23,6 @@ Key features
 - Custom error messages
 - Flask v2 / v1 support
 - Supports [Flask-RESTful](https://flask-restful.readthedocs.io/en/latest/)
-- Python 2.7 / 3.5 supported up to v3.0
 
 #### How to install:
 
