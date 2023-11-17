@@ -136,7 +136,10 @@ class ValueEmailError(RuleError):
         return 'invalid email address'
 
 
-class NumberError(RuleError):
+class NumberError(TypeConversionError, RuleError):
+    """
+    @deprecated v5.0. Number rules should raise TypeConversionError
+    """
     def __str__(self) -> str:
         return 'expected number'
 
