@@ -1,4 +1,4 @@
-from typing import List, Union, Dict, Any
+from typing import List, Union, Dict, Any, Iterable
 
 
 class RequestError(Exception):
@@ -184,6 +184,40 @@ class InvalidHeadersError(RequestError):
         return '. '.join(formatted)
 
 
+class FileError(RequestError):
+    def __init__(self, file_name: str) -> None:
+        self.file_name = file_name
+
+
+class FilesLimitError(FileError):
+    def __init__(self, files_limit: int) -> None:
+        self.files_limit = files_limit
+
+
+class FileSizeError(FileError):
+    def __init__(self, file_name: str, file_size: int, size_limit: int) -> None:
+        self.file_size = file_size
+        self.size_limit = size_limit
+        super().__init__(file_name)
+
+
+class FileNameError(FileError):
+    def __init__(self, file_names: list, names_pattern: str) -> None:
+        self.names_pattern = names_pattern
+        self.file_names = file_names
+
+
+class FileMimeTypeError(FileError):
+    def __init__(self, file_name: str, mime_type: str, available_mime_types: Iterable) -> None:
+        self.mime_type = mime_type
+        self.available_mime_types = available_mime_types
+        super().__init__(file_name)
+
+
+class FileMissingError(FileError):
+    pass
+
+
 class InvalidRequestError(RequestError):
     def __init__(
         self,
@@ -191,8 +225,10 @@ class InvalidRequestError(RequestError):
         form: Dict[str, RulesError],
         path: Dict[str, RulesError],
         json: Union[List[JsonError], Dict[str, RulesError]],
+        files: List[FileError],
     ):
         self.json = json  # list when nested json validation
         self.path = path
         self.get = get
         self.form = form
+        self.files = files

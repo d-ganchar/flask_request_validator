@@ -30,7 +30,7 @@ class TestRules(unittest.TestCase):
     def test_composite_min_max_rule(self, value, min_l, max_l, expected):
         rules = CompositeRule(*[min_l, max_l])
         if not type(expected) is type:
-            self.assertEquals(rules.validate(value), expected)
+            self.assertEqual(rules.validate(value), expected)
             return
 
         try:

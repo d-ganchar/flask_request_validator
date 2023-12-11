@@ -1,10 +1,9 @@
+import numbers
 import re
 import sys
-import numbers
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from datetime import datetime
-from typing import Iterable
 
 from .dt_utils import dt_from_iso
 from .exceptions import *
