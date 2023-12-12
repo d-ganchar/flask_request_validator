@@ -1,9 +1,9 @@
+import numbers
 import re
 import sys
-import numbers
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from datetime import datetime
-from typing import Iterable
 
 from .dt_utils import dt_from_iso
 from .exceptions import *
@@ -15,18 +15,26 @@ class AbstractRule(ABC):
     @abstractmethod
     def validate(self, value: Any) -> Any:
         """
-            The returned value does not have to match the input value.
-            Feel free to implement conversion logic.
+        The returned value does not have to match the input value.
+        Feel free to implement conversion logic.
 
-            :param Any value:
-            :raises RuleError:
+        :param Any value:
+        :raises:
+            TypeConversionError: when a value type is incorrect. skips logical checks
+            RuleError: if TypeConversionError was not raised but logic restrictions
         """
         pass
 
 
 class CompositeRule(AbstractRule):
     def __init__(self, *rules: AbstractRule) -> None:
-        self._rules = rules
+        type_checkers = (Number, BoolRule, IntRule, FloatRule)
+        rules_by_priority = sorted(rules, key=lambda x: 0 if isinstance(x, type_checkers) else 1)
+        if len(rules_by_priority) > 1 and isinstance(rules_by_priority[1], type_checkers):
+            raise WrongUsageError(f'You can use only 1 type. '
+                                  f'Choose one of: {", ".join([t.__name__ for t in type_checkers])}')
+
+        self._rules = rules_by_priority
 
     def __iter__(self):
         for rule in self._rules:
@@ -37,10 +45,13 @@ class CompositeRule(AbstractRule):
         :raises RulesError:
         """
         errors = []
-        new_value = value
+        new_value = deepcopy(value)
         for rule in self._rules:
             try:
-                new_value = rule.validate(value=value)
+                new_value = rule.validate(value=new_value)
+            except TypeConversionError as e:
+                errors.append(e)
+                break
             except RuleError as e:
                 errors.append(e)
 
@@ -173,5 +184,97 @@ class Datetime(AbstractRule):
 class Number(AbstractRule):
     def validate(self, value: Any) -> Any:
         if not isinstance(value, numbers.Number):
-            raise NumberError
+            raise NumberError()
         return value
+
+
+class IntRule(AbstractRule):
+    """
+    >>> IntRule().validate(7)
+    7
+    >>> IntRule().validate('7')
+    7   # int
+    """
+    def __init__(self, str_to_int: bool = True) -> None:
+        self._str_to_int = str_to_int
+
+    def validate(self, value: Any) -> Any:
+        if isinstance(value, int):
+            return value
+
+        if isinstance(value, str) and self._str_to_int:
+            try:
+                return int(value)
+            except ValueError:
+                pass
+
+        raise TypeConversionError()
+
+
+class FloatRule(AbstractRule):
+    """
+    >>> FloatRule().validate(9.99)
+    9.99
+    >>> FloatRule({','}).validate('9.99')
+    9.99   # float
+    """
+    def __init__(self, delimiters: set = None) -> None:
+        self._delimiters = delimiters or {}
+
+    def validate(self, value: Any) -> Any:
+        if isinstance(value, float):
+            return value
+
+        if isinstance(value, str):
+            for char in self._delimiters:
+                try:
+                    return float(value.replace(char, '.', 1))
+                except ValueError:
+                    pass
+
+        raise TypeConversionError()
+
+
+class BoolRule(AbstractRule):
+    """
+    >>> BoolRule().validate(True)
+    True
+    >>> BoolRule().validate(False)
+    False
+    >>> BoolRule(yes={'plus'}).validate('PluS')
+    True  # bool
+    >>> BoolRule(yes={1}).validate(1)
+    True  # bool
+    >>> BoolRule(no={'no'}).validate('No')
+    False  # bool
+    >>> BoolRule(no={0}).validate(0)
+    False  # bool
+    """
+    def __init__(self, yes: set = None, no: set = None) -> None:
+        self._yes = yes or set()
+        self._no = no or set()
+
+    def validate(self, value: Any) -> Any:
+        if isinstance(value, bool):
+            return value
+
+        if isinstance(value, int):
+            for yes in self._yes:
+                if yes == value:
+                    return True
+
+            for no in self._no:
+                if no == value:
+                    return False
+
+        if isinstance(value, str):
+            low_val = value.lower()
+            for yes in self._yes:
+                if yes == low_val:
+                    return True
+
+            for no in self._no:
+                if no == low_val:
+                    return False
+
+        raise TypeConversionError()

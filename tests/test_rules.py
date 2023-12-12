@@ -13,136 +13,193 @@ class TestRules(unittest.TestCase):
         with self.assertRaises(expected_exception=TypeError):
             AbstractRule()
 
-    def _assert_single_rules_error(self, rules, value, exp_type):
-        if exp_type:
-            try:
-                rules.validate(value)
-            except RulesError as e:
-                self.assertTrue(1, len(e.errors))
-                self.assertTrue(isinstance(e.errors[0], exp_type))
-
-    def _assert_rule_error(self, rule, value, exp_type):
-        if exp_type:
-            self.assertRaises(exp_type, rule.validate, value)
-
     @parameterized.expand([
-        (1.00001, Min(1), Max(2), None),
-        (1.00000, Min(1), Max(2), None),
-        (1.99999, Min(1), Max(2), None),
-        (2.00000, Min(1), Max(2), None),
+        (1.00001, Min(1), Max(2), 1.00001),
+        (1.00000, Min(1), Max(2), 1.00000),
+        (1.99999, Min(1), Max(2), 1.99999),
+        (2.00000, Min(1), Max(2), 2.00000),
         (0.000009, Min(1), Max(2), ValueMinError),
         (1.00000, Min(1, False), Max(2), ValueMinError),
         (2.0000001, Min(1), Max(2), ValueMaxError),
         (2.00000, Min(1), Max(2, False), ValueMaxError),
-    ])
-    def test_min_max(self, value, min_rule, max_rule, exp) -> None:
-        rules = CompositeRule(*[min_rule, max_rule])
-        self._assert_single_rules_error(rules, value, exp)
-
-    @parameterized.expand([
-        (Pattern(r'^[0-9]*$'), '0', None, ),
-        (Pattern(r'^[0-9]*$'), '23456', None, ),
-        (Pattern(r'^[0-9]*$'), 'god is an astronaut', ValuePatternError,),
-        (Pattern(r'^[0-9]*$'), ' ', ValuePatternError,),
-    ])
-    def test_pattern_rule(self, rule, value, exp) -> None:
-        self._assert_rule_error(rule, value, exp)
-
-    @parameterized.expand([
-        (Enum('thievery corporation', 'bonobo'), 'jimi hendrix', ValueEnumError),
-        (Enum('thievery corporation', 'bonobo'), 'thievery corporation', None),
-        (Enum('thievery corporation', 'bonobo'), 'bonobo', None),
-    ])
-    def test_enum_rule(self, rule, value, exp) -> None:
-        self._assert_rule_error(rule, value, exp)
-
-    @parameterized.expand([
-        ('mammal hands', MinLength(11), MaxLength(13), None),
+        ('mammal hands', MinLength(11), MaxLength(13), 'mammal hands'),
         ('', MinLength(3), MaxLength(5), ValueMinLengthError),
         ('mammal hands', MinLength(11), MaxLength(13), ValueMinLengthError),
         ('#mammal hands#', MinLength(11), MaxLength(13), ValueMaxLengthError),
     ])
-    def test_min_max_length_rule(self, value, min_l, max_l, exp):
+    def test_composite_min_max_rule(self, value, min_l, max_l, expected):
         rules = CompositeRule(*[min_l, max_l])
-        self._assert_single_rules_error(rules, value, exp)
+        if not type(expected) is type:
+            self.assertEqual(rules.validate(value), expected)
+            return
+
+        try:
+            rules.validate(value)
+        except RulesError as e:
+            self.assertTrue(1, len(e.errors))
+            self.assertTrue(isinstance(e.errors[0], expected))
+
+    def test_composite_wrong_usage(self):
+        checkers = [
+            Number(),
+            BoolRule(),
+            BoolRule({'+'}),
+            BoolRule({'+'}, {'-'}),
+            BoolRule({'-'}),
+            IntRule(),
+            IntRule(False),
+            FloatRule(),
+            FloatRule({','}),
+        ]
+
+        random.shuffle(checkers)
+        with self.assertRaises(expected_exception=WrongUsageError):
+            CompositeRule(*checkers[0:2])
 
     @parameterized.expand([
-        ('exxasens', 'exxasens', None),
-        ('  exxasens   ', 'exxasens', None),
-        ('', '', ValueEmptyError),
-        (' ' * random.randint(2, 20), '', ValueEmptyError),
-    ])
-    def test_not_empty_rule(self, value, exp_val, exp_err) -> None:
-        rule = NotEmpty()
-        if exp_err:
-            self.assertRaises(exp_err, rule.validate, value)
-        else:
-            self.assertEqual(rule.validate(value), exp_val)
-
-    @parameterized.expand([
-        ('fred@web.de', None, ),
-        ('genial@gmail.com', None, ),
-        ('test@test.co.uk', None, ),
-        ('fred', None, ),
-        ('fred@web', ValueEmailError, ),
-        ('fred@w@eb.de', ValueEmailError, ),
-        ('fred@@web.de', ValueEmailError, ),
-        ('fred@@web.de', ValueEmailError, ),
-        ('invalid@invalid', ValueEmailError, ),
-    ])
-    def test_is_email_rule(self, value, exp_err) -> None:
-        self._assert_rule_error(IsEmail(), value, exp_err)
-
-    @parameterized.expand([
-        ('2021-01-02T03:04:05.450686Z', datetime(2021, 1, 2, 3, 4, 5, 450686)),
+        # Pattern
         (
-            '2020-12-01T21:31:32.956214+02:00',
-            datetime(2020, 12, 1, 21, 31, 32, 956214, timezone(timedelta(seconds=7200))),
+            Pattern(r'^[0-9]*$'),
+            [
+                ['0', '0'],
+                ['god is an astronaut', ValuePatternError],
+                [' ', ValuePatternError],
+            ]
+        ),
+        # Enum
+        (
+            Enum('thievery corporation', 'bonobo'),
+            [
+                ['jimi hendrix', ValueEnumError],
+                ['thievery corporation', 'thievery corporation'],
+                ['bonobo', 'bonobo'],
+            ],
+        ),
+        # NotEmpty
+        (NotEmpty(), [
+            ['exxasens', 'exxasens'],
+            ['  exxasens   ', 'exxasens'],
+            ['', ValueEmptyError],
+            [' ' * random.randint(2, 20), ValueEmptyError],
+        ]),
+        # IsEmail
+        (
+            IsEmail(),
+            [
+                ['fred@web.de', 'fred@web.de'],
+                ['genial@gmail.com', 'genial@gmail.com'],
+                ['test@test.co.uk', 'test@test.co.uk'],
+                ['test@test.co.uk', 'test@test.co.uk'],
+                ['fred', ValueEmailError],
+                ['fred@web', ValueEmailError],
+                ['fred@w@eb.de', ValueEmailError],
+                ['invalid@invalid', ValueEmailError],
+            ],
+        ),
+        # IsDatetimeIsoFormat
+        (
+            IsDatetimeIsoFormat(),
+            [
+                ['2021-01-02T03:04:05.450686Z', datetime(2021, 1, 2, 3, 4, 5, 450686)],
+                ['2020-12-01T21:31:32.956214+02:00', datetime(2020, 12, 1, 21, 31, 32,
+                                                              956214, timezone(timedelta(seconds=7200)))],
+                ['2020-12-01T21:31:32.956214+02:00', datetime(2020, 12, 1, 21, 31, 32, 956214,
+                                                              timezone(timedelta(seconds=7200)))],
+                ['2021-01-02', datetime(2021, 1, 2)],
+                ['2020-12-01T21:31:41', datetime(2020, 12, 1, 21, 31, 41)],
+                ['2020-12-01T21', datetime(2020, 12, 1, 21, 0, 0)],
+                ['2020-12-01T21:30', datetime(2020, 12, 1, 21, 30, 0)],
+                ['2020-12-01T', ValueDtIsoFormatError],
+                ['2020-12', ValueDtIsoFormatError],
+                ['2020', ValueDtIsoFormatError],
+            ],
+        ),
+        # Datetime
+        (Datetime('%Y-%m-%d'), [['2021-01-02', datetime(2021, 1, 2)]]),
+        (Datetime('%Y-%m-%d %H:%M:%S'), [['2020-02-03 04:05:06', datetime(2020, 2, 3, 4, 5, 6)]]),
+        (Datetime('%Y-%m-%d %H:%M:%S'), [['2020-0a-0b 04:05:06', ValueDatetimeError]]),
+        (Datetime('%Y-%m-%d'), [['2020-01-0z', ValueDatetimeError]]),
+        # Number
+        (
+            Number(),
+            [
+                [1.0000000000000001e-21, 1.0000000000000001e-21],
+                [2, 2],
+                [3.04, 3.04],
+                ['3o1', NumberError],
+                ['', NumberError],
+                [[], NumberError],
+                [{}, NumberError],
+            ],
+        ),
+        # IntRule
+        (IntRule(), [[8, 8], ['69', 69]]),
+        (
+            IntRule(False),
+            [
+                ['101', TypeConversionError],
+                [1.05, TypeConversionError],
+                [[], TypeConversionError],
+                [{}, TypeConversionError],
+                [None, TypeConversionError],
+            ]
+        ),
+        # FloatRule
+        (
+            FloatRule(),
+            [
+                [99.69, 99.69],
+                [-1.08, -1.08],
+                ['1.001', TypeConversionError],
+                [7, TypeConversionError],
+                [[], TypeConversionError],
+                [{}, TypeConversionError],
+            ],
         ),
         (
-            '2020-12-01T21:31:32.956214-02:00',
-            datetime(2020, 12, 1, 21, 31, 32, 956214, timezone(timedelta(-1, seconds=79200))),
+            FloatRule({'.', ','}),
+            [
+                ['1000,0001', 1000.0001],
+                ['1000.0001', 1000.0001],
+                ['1000-0001', TypeConversionError],
+                [65, TypeConversionError],
+            ],
         ),
-        ('2021-01-02', datetime(2021, 1, 2)),
-        ('2020-12-01T21:31:41', datetime(2020, 12, 1, 21, 31, 41)),
-        ('2020-12-01T21', datetime(2020, 12, 1, 21, 0, 0)),
-        ('2020-12-01T21:30', datetime(2020, 12, 1, 21, 30, 0)),
-        ('2020-12-01T', None),
-        ('2020-12', None),
-        ('2020', None),
+        # BoolRule
+        (
+            BoolRule(),
+            [
+                [True, True],
+                [False, False],
+                [[], TypeConversionError],
+                [{}, TypeConversionError],
+                [1, TypeConversionError],
+                ['1', TypeConversionError],
+                [0, TypeConversionError],
+                ['0', TypeConversionError],
+            ],
+        ),
+        (
+            BoolRule({'yes', '+', 1}, {'-', 'no', 0}),
+            [
+                [True, True],
+                [1, True],
+                ['yes', True],
+                ['YeS', True],
+                ['+', True],
+                [False, False],
+                [0, False],
+                ['no', False],
+                ['No', False],
+                ['-', False],
+            ],
+        ),
     ])
-    def test_datetime_iso_format_rule(self, value, exp_dt) -> None:
-        rule = IsDatetimeIsoFormat()
-        if exp_dt:
-            self.assertEqual(exp_dt, rule.validate(value))
-        else:
-            self.assertRaises(ValueDtIsoFormatError, rule.validate, value)
+    def test_rule(self, rule, values):
+        for value, expected in values:
+            if type(expected) is type:
+                self.assertRaises(expected, rule.validate, value)
+                continue
 
-    @parameterized.expand([
-        ('2021-01-02', '%Y-%m-%d', datetime(2021, 1, 2), None),
-        ('2020-02-03 04:05:06', '%Y-%m-%d %H:%M:%S', datetime(2020, 2, 3, 4, 5, 6), None),
-        ('2020-0a-0b 04:05:06', '%Y-%m-%d %H:%M:%S', None, ValueDatetimeError),
-        ('2020-01-0z', '%Y-%m-%d', None, ValueDatetimeError),
-    ])
-    def test_datetime_rule(self, value, dt_format, dt, err):
-        rule = Datetime(dt_format)
-        if err:
-            self.assertRaises(ValueDatetimeError, rule.validate, value)
-        else:
-            self.assertEqual(dt, rule.validate(value))
-
-    @parameterized.expand([
-        (1.0000000000000001e-21, 1.0000000000000001e-21),
-        (2, 2),
-        (3.04, 3.04),
-        ('3o1', None),
-        ('', None),
-        ([], None),
-        ({}, None),
-    ])
-    def test_number_rule(self, value, expected):
-        rule = Number()
-        if expected:
             self.assertEqual(expected, rule.validate(value))
-        else:
-            self.assertRaises(NumberError, rule.validate, value)
+
