@@ -2,13 +2,14 @@ import types
 from functools import wraps
 from typing import Tuple
 
-from flask import request
+from flask import request, Request
 
 from .after_param import AbstractAfterParam
 from .exceptions import *
 from .rules import CompositeRule
 from .valid_request import ValidRequest
 from .nested_json import JsonParam
+from .files import File, FileChain
 
 
 GET = 'GET'
@@ -16,6 +17,7 @@ PATH = 'PATH'
 FORM = 'FORM'
 HEADER = 'HEADER'
 JSON = 'JSON'
+FILES = ' FILES'
 PARAM_TYPES = (GET, PATH, FORM, JSON, HEADER)
 _ALLOWED_TYPES = (str, bool, int, float, dict, list)
 
@@ -46,6 +48,9 @@ class _ValidRequest(ValidRequest):
     def get_path_params(self) -> Dict[str, Any]:
         return self._valid_data.get(PATH, dict())
 
+    def get_flask_request(self) -> Request:
+        return request
+
 
 class Param:
     def __init__(self, name, param_type, value_type=None,
@@ -57,7 +62,8 @@ class Param:
         :param list|CompositeRule rules:
         :param str name: name of param
         :param str param_type: type of request param (see: PARAM_TYPES)
-        :raises: UndefinedParamType, NotAllowedType, WrongUsageError
+        :raises:
+            WrongUsageError
         """
         if param_type not in PARAM_TYPES:
             raise WrongUsageError(
@@ -84,7 +90,8 @@ class Param:
 
     def value_to_type(self, value: Any) -> Any:
         """
-        :raises TypeConversionError:
+        :raises:
+            TypeConversionError:
         """
         if self.value_type == bool:
             if isinstance(value, str):
@@ -114,7 +121,8 @@ class Param:
 
     def get_value_from_request(self) -> Any:
         """
-        :raises RequiredValueError:
+        :raises:
+            RequiredValueError:
         """
         value = None
         if self.param_type == FORM:
@@ -135,13 +143,18 @@ class Param:
         return value
 
 
-def validate_params(*params: Union[JsonParam, Param, AbstractAfterParam]):
+def validate_params(*params: Union[JsonParam, Param, AbstractAfterParam, File, FileChain]):
     """
-    :raises InvalidHeadersError:
-        When found invalid headers. Raises before other params validation
-    :raises InvalidRequestError:
-        Raises after headers validation if errors found
+    :raises:
+        InvalidHeadersError: When found invalid headers. Raises before other params validation
+        InvalidRequestError: Raises after headers validation if errors found
+        WrongUsageError:
     """
+    files = [isinstance(f, File) for f in params]
+    chains = [isinstance(f, FileChain) for f in params]
+    if any(files) and any(chains):
+        raise WrongUsageError('it is impossible to use File and FileChain. You should use FileChain or multiple File')
+
     def validate_request(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -163,7 +176,7 @@ def validate_params(*params: Union[JsonParam, Param, AbstractAfterParam]):
             for type_errors in errors.values():
                 if type_errors:
                     raise InvalidRequestError(errors[GET], errors[FORM],
-                                              errors[PATH], errors[JSON])
+                                              errors[PATH], errors[JSON], errors[FILES])
             for param in after_params:
                 param.validate(valid)
 
@@ -176,8 +189,8 @@ def validate_params(*params: Union[JsonParam, Param, AbstractAfterParam]):
 def __get_request_errors(
     params: Tuple[Union[Param, JsonParam], ...],
     valid: _ValidRequest
-) -> Tuple[_ValidRequest, Dict[str, Union[Dict[str, RulesError], List[JsonError]]]]:
-    errors = {GET: dict(), FORM: dict(), JSON: dict(), HEADER: dict(), PATH: dict()}
+) -> Tuple[_ValidRequest, Dict[str, Union[Dict[str, RulesError], List[JsonError], List[FileError]]]]:
+    errors = {GET: dict(), FORM: dict(), JSON: dict(), HEADER: dict(), PATH: dict(), FILES: []}
     for param in params:
         if isinstance(param, JsonParam):
             value, json_errors = param.validate(request.get_json())
@@ -185,6 +198,13 @@ def __get_request_errors(
                 errors[JSON] = json_errors
             else:
                 valid.set_json(value)
+            continue
+
+        if isinstance(param, (File, FileChain)):
+            try:
+                param.validate(request.files)
+            except FileError as error:
+                errors[FILES].append(error)
             continue
 
         try:
