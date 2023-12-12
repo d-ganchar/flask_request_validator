@@ -660,3 +660,59 @@ class TestAfterParam(TestCase):
                 content_type='application/json',
             ).json
             self.assertEqual(data, expected)
+
+
+@_app2.route('/issue/83', methods=['POST'])
+@validate_params(
+    JsonParam(dict(
+        age=[Min(27), IntRule()],
+        age_as_str=[Min(27), IntRule()],
+        price=[Min(0.69), FloatRule()],
+        price_as_str=[Min(0.69), FloatRule({','})],
+        yes=[BoolRule()],
+        no=[BoolRule()],
+        plus=[BoolRule({'+'})],
+        one=[BoolRule({1})],
+        zero=[BoolRule(no={0})],
+        minus=[BoolRule(no={'-'})],
+    ))
+)
+def issue_83(valid: ValidRequest):
+    return flask.jsonify(valid.get_json())
+
+
+class TestIntFloatBoolRules(TestCase):
+    def test_issue_83(self):
+        with _app2.test_client() as client:
+            data = client.post(
+                '/issue/83',
+                data=json.dumps(dict(
+                    age=27,
+                    age_as_str='27',
+                    price=0.69,
+                    price_as_str='0,69',
+                    yes=True,
+                    no=False,
+                    plus='+',
+                    one=1,
+                    zero=0,
+                    minus='-',
+                )),
+                content_type='application/json',
+            ).json
+
+            self.assertEqual(
+                data,
+                dict(
+                    age=27,
+                    age_as_str=27,
+                    price=0.69,
+                    price_as_str=0.69,
+                    yes=True,
+                    no=False,
+                    plus=True,
+                    one=True,
+                    zero=False,
+                    minus=False,
+                )
+            )

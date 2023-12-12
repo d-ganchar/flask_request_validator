@@ -3,24 +3,36 @@ from copy import deepcopy
 
 from parameterized import parameterized
 
-from flask_request_validator import JsonParam, Enum, CompositeRule, Min, Max, IsEmail, Number, MinLength
+from flask_request_validator import (
+    JsonParam as P,
+    Enum,
+    CompositeRule,
+    Min,
+    Max,
+    IsEmail,
+    Number,
+    MinLength,
+    IntRule,
+    FloatRule,
+    BoolRule,
+)
 from flask_request_validator.exceptions import *
 
 
 class TestJsonParam(unittest.TestCase):
-    LIST_SCHEMA = JsonParam(
+    LIST_SCHEMA = P(
         {
-            'person': JsonParam(
+            'person': P(
                 {
-                    'info': JsonParam({
-                        'contacts': JsonParam({
-                            'phones': JsonParam([Enum('+375', '+49')], as_list=True),
-                            'networks': JsonParam(
+                    'info': P({
+                        'contacts': P({
+                            'phones': P([Enum('+375', '+49')], as_list=True),
+                            'networks': P(
                                 {'name': [Enum('facebook', 'telegram')]},
                                 as_list=True,
                             ),
-                            'emails': JsonParam([IsEmail()], as_list=True),
-                            'addresses': JsonParam({'street': []},  required=False),
+                            'emails': P([IsEmail()], as_list=True),
+                            'addresses': P({'street': []}, required=False),
                         }),
                     }),
                 },
@@ -28,23 +40,23 @@ class TestJsonParam(unittest.TestCase):
         },
     )
 
-    DICT_SCHEMA = JsonParam(
+    DICT_SCHEMA = P(
         {
             'street': CompositeRule(Enum('Jakuba Kolasa')),
-            'meta': JsonParam(
+            'meta': P(
                 {
-                    'description': JsonParam({
+                    'description': P({
                         'color': [Enum('green', 'yellow', 'blue')],
                     }, ),
-                    'buildings': JsonParam({
-                        'warehouses': JsonParam({
-                            'small': JsonParam({
+                    'buildings': P({
+                        'warehouses': P({
+                            'small': P({
                                 'count': CompositeRule(Min(0), Max(99)),
                             }),
                             'large': [Min(1), Max(10)]
                         }),
                     }),
-                    'not_required': JsonParam({'text': []}, required=False),
+                    'not_required': P({'text': []}, required=False),
                 },
             ),
         },
@@ -144,7 +156,7 @@ class TestJsonParam(unittest.TestCase):
             [],
         ),
     ])
-    def test_validate(self, param: JsonParam, data, exp):
+    def test_validate(self, param: P, data, exp):
         value, errors = param.validate(deepcopy(data))
         self.assertEqual(len(errors), len(exp))
 
@@ -169,10 +181,10 @@ class TestJsonParam(unittest.TestCase):
         ),
     ])
     def test_root_list_valid(self, value):
-        param = JsonParam({
+        param = P({
             'age': [Number()],
             'name': [MinLength(1), ],
-            'tags': JsonParam({'name': [MinLength(1)]}, required=False, as_list=True)
+            'tags': P({'name': [MinLength(1)]}, required=False, as_list=True)
         }, as_list=True)
 
         valid_value, errors = param.validate(deepcopy(value))
@@ -180,10 +192,10 @@ class TestJsonParam(unittest.TestCase):
         self.assertEqual(0, len(errors))
 
     def test_root_list_invalid(self):
-        param = JsonParam({
+        param = P({
             'age': [Number()],
             'name': [MinLength(1), ],
-            'tags': JsonParam({'name': [MinLength(1)]}, required=False, as_list=True)
+            'tags': P({'name': [MinLength(1)]}, required=False, as_list=True)
         }, as_list=True)
         # invalid values
         _, errors = param.validate([
@@ -202,3 +214,36 @@ class TestJsonParam(unittest.TestCase):
         # invalid type - dict instead list
         _, errors = param.validate({'age': 18, 'name': 'test'})
         self.assertEqual("[JsonListExpectedError(['root'])]", str(errors))
+
+    @parameterized.expand([
+        # IntRule
+        (
+                P(dict(age=[Min(27), IntRule()], day=[Min(1), IntRule()])),
+                dict(age=27, day='1'),
+                dict(age=27, day=1),
+        ),
+        (
+                P(dict(age=[Min(27), IntRule(False)])),
+                dict(age='27'),
+            "[JsonError(['root'], {'age': RulesError(TypeConversionError())}, False)]",
+        ),
+        # FloatRule
+        (
+                P(dict(price=[Min(0.69), FloatRule()], size=[Min(0.25), FloatRule({','})])),
+                dict(price=0.69, size='0,25'),
+                dict(price=0.69, size=0.25),
+        ),
+        # BoolRule
+        (
+                P(dict(yes=[BoolRule()], no=[BoolRule()])),
+                dict(yes=True, no=False),
+                dict(yes=True, no=False),
+        ),
+    ])
+    def test_type_checkers(self, param: P, value: dict, expected: dict or str):
+        new_val, errors = param.validate(value)
+        if isinstance(expected, str):
+            self.assertEqual(expected, str(errors))
+            return
+
+        self.assertEqual(new_val, expected)
