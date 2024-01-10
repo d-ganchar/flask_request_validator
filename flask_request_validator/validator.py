@@ -1,4 +1,5 @@
 import types
+from copy import deepcopy
 from functools import wraps
 from typing import Tuple
 
@@ -193,7 +194,7 @@ def __get_request_errors(
     errors = {GET: dict(), FORM: dict(), JSON: dict(), HEADER: dict(), PATH: dict(), FILES: []}
     for param in params:
         if isinstance(param, JsonParam):
-            value, json_errors = param.validate(request.get_json())
+            value, json_errors = param.validate(deepcopy(request.get_json()))
             if json_errors:
                 errors[JSON] = json_errors
             else:
