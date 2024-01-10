@@ -1,14 +1,18 @@
-import io
 from setuptools import setup
 
-with io.open('README.rst', 'rt', encoding='utf8') as f:
-    long_description = f.read()
+DESCRIPTION = """Flask Request Validator
+=======================
+
+See `readme`_
+
+.. _readme: https://github.com/d-ganchar/flask_request_validator#flask-request-validator
+"""
 
 setup(
     name='flask_request_validator',
-    version='4.3.0',
+    version='4.3.1',
     description='Flask request data validation',
-    long_description=long_description,
+    long_description=DESCRIPTION,
     url='https://github.com/d-ganchar/flask_request_validator',
     author='Danila Ganchar',
     author_email='danila.ganchar@gmail.com',

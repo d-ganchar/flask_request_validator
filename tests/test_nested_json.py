@@ -2,6 +2,7 @@ import unittest
 from copy import deepcopy
 
 from parameterized import parameterized
+import flask
 
 from flask_request_validator import (
     JsonParam as P,
@@ -15,6 +16,8 @@ from flask_request_validator import (
     IntRule,
     FloatRule,
     BoolRule,
+    validate_params,
+    ValidRequest,
 )
 from flask_request_validator.exceptions import *
 
@@ -218,26 +221,26 @@ class TestJsonParam(unittest.TestCase):
     @parameterized.expand([
         # IntRule
         (
-                P(dict(age=[Min(27), IntRule()], day=[Min(1), IntRule()])),
-                dict(age=27, day='1'),
-                dict(age=27, day=1),
+            P(dict(age=[Min(27), IntRule()], day=[Min(1), IntRule()])),
+            dict(age=27, day='1'),
+            dict(age=27, day=1),
         ),
         (
-                P(dict(age=[Min(27), IntRule(False)])),
-                dict(age='27'),
+            P(dict(age=[Min(27), IntRule(False)])),
+            dict(age='27'),
             "[JsonError(['root'], {'age': RulesError(TypeConversionError())}, False)]",
         ),
         # FloatRule
         (
-                P(dict(price=[Min(0.69), FloatRule()], size=[Min(0.25), FloatRule({','})])),
-                dict(price=0.69, size='0,25'),
-                dict(price=0.69, size=0.25),
+            P(dict(price=[Min(0.69), FloatRule()], size=[Min(0.25), FloatRule({','})])),
+            dict(price=0.69, size='0,25'),
+            dict(price=0.69, size=0.25),
         ),
         # BoolRule
         (
-                P(dict(yes=[BoolRule()], no=[BoolRule()])),
-                dict(yes=True, no=False),
-                dict(yes=True, no=False),
+            P(dict(yes=[BoolRule()], no=[BoolRule()])),
+            dict(yes=True, no=False),
+            dict(yes=True, no=False),
         ),
     ])
     def test_type_checkers(self, param: P, value: dict, expected: dict or str):
@@ -247,3 +250,30 @@ class TestJsonParam(unittest.TestCase):
             return
 
         self.assertEqual(new_val, expected)
+
+
+_app = flask.Flask(__name__)
+
+_app.testing = True
+
+
+@_app.route('/issue-90', methods=['POST'])
+@validate_params(P(dict(amount=[IntRule()], price=[FloatRule({','})])))
+def issue_90(valid: ValidRequest):
+    return flask.jsonify(dict(
+        json_after_validation=valid.get_json(),
+        raw_json=valid.get_flask_request().json,
+    ))
+
+
+class TestNestedJson(unittest.TestCase):
+    def test_nested_json(self):
+        data = dict(amount='99', price='101,101')
+        with _app.test_client() as client:
+            result = client.post('/issue-90', json=data).json
+
+        self.assertDictEqual(result['raw_json'], data)
+        self.assertDictEqual(
+            result['json_after_validation'],
+            dict(amount=99, price=101.101),
+        )
