@@ -6,7 +6,6 @@ import flask
 from flask_restful import Api
 from parameterized import parameterized
 
-from flask_request_validator.error_formatter import demo_error_formatter
 from flask_request_validator.rules import *
 from flask_request_validator.validator import *
 
@@ -348,8 +347,12 @@ _app2 = flask.Flask(__name__)
 
 
 @_app2.errorhandler(RequestError)
-def handler(e):
-    return flask.jsonify(demo_error_formatter(e)), 400
+def handler(e: InvalidRequestError):
+    if isinstance(e, InvalidRequestError):
+        return str(e.to_dict()), 400
+    if isinstance(e, AfterParamError):
+        return str(e), 400
+    raise e
 
 
 @_app2.route('/', methods=['POST'])
@@ -414,28 +417,16 @@ class TestNestedJson(TestCase):
                     ],
                 }
             },
-            [
-                {
-                    'errors': [
-                        {'keys': {'description': 'invalid length, min length = 5',
-                                  'status': 'not allowed, allowed values: active|not_active'},
-                         'path': 'root|music|bands|details'},
-                        {'list_items': {'0': {'name': 'invalid length, min length = 3'},
-                                        '1': {'name': 'invalid length, min length = 3'}},
-                         'path': 'root|music|bands|persons'}, {
-                            'keys': {'description': 'invalid length, min length = 5',
-                                     'status': 'not allowed, allowed values: active|not_active'},
-                            'path': 'root|music|bands|details'},
-                        {'list_items': {'0': {'name': 'invalid length, min length = 3'}},
-                         'path': 'root|music|bands|persons'},
-                        {'list_items': {'0': {'name': 'invalid length, min length = 2'},
-                                        '1': {'name': 'invalid length, min length = 2'}},
-                         'path': 'root|music|bands'}, {
-                            'keys': {'island': 'value does not match pattern ^[a-z]{4,20}$',
-                                     'iso': 'expected a datetime in ISO format'}, 'path': 'root'}],
-                    'message': 'invalid JSON parameters'
-                }
-            ],
+            b"{'json': [JsonError(['root', 'music', 'bands', 'details'], {'description': "
+            b"RulesError(ValueMinLengthError(5)), 'status': RulesError(ValueEnumError(('active', 'not_active')))}, "
+            b"False), JsonError(['root', 'music', 'bands', 'persons'], {0: "
+            b"{'name': RulesError(ValueMinLengthError(3))}, 1: {'name': RulesError(ValueMinLengthError(3))}}, True), "
+            b"JsonError(['root', 'music', 'bands', 'details'], {'description': RulesError(ValueMinLengthError(5)), "
+            b"'status': RulesError(ValueEnumError(('active', 'not_active')))}, False), "
+            b"JsonError(['root', 'music', 'bands', 'persons'], {0: {'name': RulesError(ValueMinLengthError(3))}}, "
+            b"True), JsonError(['root', 'music', 'bands'], {0: {'name': RulesError(ValueMinLengthError(2))}, 1: "
+            b"{'name': RulesError(ValueMinLengthError(2))}}, True), JsonError(['root'], {'island': "
+            b"RulesError(ValuePatternError('^[a-z]{4,20}$')), 'iso': RulesError(ValueDtIsoFormatError())}, False)]}",
             '400 BAD REQUEST',
         ),
         # valid
@@ -477,43 +468,12 @@ class TestNestedJson(TestCase):
                     ],
                 }
             },
-            {
-                'json': {
-                    'island': 'valid', 'iso': '2021-01-02', 'music': {
-                        'bands': [
-                            {
-                                'name': 'Metallica',
-                                'details': {
-                                    'details': 'Los Angeles, California, U.S.',
-                                    'description': 'very long description',
-                                    'status': 'active',
-                                },
-                                'persons': [
-                                    {'name': 'James Hetfield'},
-                                    {'name': 'Lars Ulrich'},
-                                    {'name': 'Kirk Hammett'},
-                                    {'name': 'Robert Trujillo'},
-                                ]
-                            },
-                            {
-                                'name': 'AC/DC',
-                                'details': {
-                                    'details': 'Sydney, Australia',
-                                    'status': 'active',
-                                    'description': 'positive',
-                                },
-                                'persons': [
-                                    {'name': 'Angus Young'},
-                                    {'name': 'Stevie Young'},
-                                    {'name': 'Brian Johnson'},
-                                    {'name': 'Phil Rudd'},
-                                    {'name': 'Cliff Williams'},
-                                ],
-                             },
-                        ]
-                    }
-                }
-            },
+            b'{"json":{"island":"valid","iso":"2021-01-02","music":{"bands":[{"details":{"description":"very '
+            b'long description","details":"Los Angeles, California, U.S.","status":"active"},"name":"Metallica",'
+            b'"persons":[{"name":"James Hetfield"},{"name":"Lars Ulrich"},{"name":"Kirk Hammett"},'
+            b'{"name":"Robert Trujillo"}]},{"details":{"description":"positive","details":"Sydney, '
+            b'Australia","status":"active"},"name":"AC/DC","persons":[{"name":"Angus Young"},{"name":"Stevie Young"},'
+            b'{"name":"Brian Johnson"},{"name":"Phil Rudd"},{"name":"Cliff Williams"}]}]}}}\n',
             '200 OK'
         ),
     ])
@@ -521,47 +481,27 @@ class TestNestedJson(TestCase):
         with _app2.test_client() as client:
             response = client.post('/', data=json.dumps(data), content_type='application/json')
             self.assertEqual(response.status, status)
-            self.assertEqual(response.json, expected)
+            self.assertEqual(response.data, expected)
 
     @parameterized.expand([
         (
             [{'key': 'testKey', 'value': 'testValue'}],
-            [{
-                'errors': [{'list_items': {'0': {'namespace': 'key is required'}}, 'path': 'root'}],
-                'message': 'invalid JSON parameters',
-            }],
+            b"{'json': [JsonError(['root'], {0: {'namespace': RulesError(MissingJsonKeyError('namespace'))}}, True)]}"
         ),
         (
             [{}, {'unknown_field': 'value'}],
-            [
-                {
-                    'errors': [
-                        {
-                            'list_items': {
-                                '0': {
-                                    'key': 'key is required',
-                                    'namespace': 'key is required',
-                                    'value': 'key is required',
-                                },
-                                '1': {
-                                    'key': 'key is required',
-                                    'namespace': 'key is required',
-                                    'value': 'key is required',
-                                },
-                            },
-                            'path': 'root',
-                        },
-                    ],
-                    'message': 'invalid JSON parameters',
-                },
-            ],
+            b"{'json': [JsonError(['root'], {0: {'namespace': RulesError(MissingJsonKeyError('namespace')), "
+            b"'key': RulesError(MissingJsonKeyError('key')), 'value': RulesError(MissingJsonKeyError('value'))}, "
+            b"1: {'namespace': RulesError(MissingJsonKeyError('namespace')), "
+            b"'key': RulesError(MissingJsonKeyError('key')), "
+            b"'value': RulesError(MissingJsonKeyError('value'))}}, True)]}"
         )
     ])
     def test_issue_82_negative(self, data, expected):
         with _app2.test_client() as client:
             response = client.post('/issue/82', data=json.dumps(data), content_type='application/json')
             self.assertEqual(response.status, '400 BAD REQUEST')
-            self.assertEqual(response.json, expected)
+            self.assertEqual(response.data, expected)
 
     def test_issue_82_positive(self):
         with _app2.test_client() as client:
@@ -616,20 +556,16 @@ class TestAfterParam(TestCase):
     @parameterized.expand([
         (
             ['2021-01-01', '2021-01-'],
-            [{'errors': [
-                {'list_items': {'1': 'expected a datetime in %Y-%m-%d format'},
-                 'path': 'root|dates'}], 'message': 'invalid JSON parameters'}]
+            b"{'json': [JsonError(['root', 'dates'], {1: RulesError(ValueDatetimeError('%Y-%m-%d'))}, True)]}",
         ),
         (
             ['2021'],
-            [{'errors': [{'list_items': {'0': 'expected a datetime in %Y-%m-%d format'},
-                         'path': 'root|dates'}],
-             'message': 'invalid JSON parameters'}]
+            b"{'json': [JsonError(['root', 'dates'], {0: RulesError(ValueDatetimeError('%Y-%m-%d'))}, True)]}",
         ),
         # valid
         (
             ['2021-01-01', '2021-01-02', '2021-01-03', '2021-01-04'],
-            ['2021-01-01', '2021-01-02', '2021-01-03', '2021-01-04'],
+            b'["2021-01-01","2021-01-02","2021-01-03","2021-01-04"]\n',
         ),
     ])
     def test_after_param_rules(self, dates, expected):
@@ -638,28 +574,39 @@ class TestAfterParam(TestCase):
                 '/after_param',
                 data=json.dumps({'dates': dates}),
                 content_type='application/json',
-            ).json
+            )
 
-            self.assertEqual(result, expected)
+            self.assertEqual(result.data, expected)
 
     @parameterized.expand([
         # valid
         (
             ['2021-01-01', '2021-01-02', '2021-01-03', '2021-01-04'],
-            ['2021-01-01', '2021-01-02', '2021-01-03', '2021-01-04'],
+            '200 OK',
+            b'["2021-01-01","2021-01-02","2021-01-03","2021-01-04"]\n',
         ),
         # invalid
-        (['2021-01-01', '2021-01-02', '2021-01-03', '2021-01-01'], ['2021-01-01 < 2021-01-03']),
-        (['2021-01-10', '2021-01-01', ], ['2021-01-01 < 2021-01-10']),
+        (
+            ['2021-01-01', '2021-01-02', '2021-01-03', '2021-01-01'],
+            '400 BAD REQUEST',
+            b'2021-01-01 < 2021-01-03',
+        ),
+        (
+            ['2021-01-10', '2021-01-01'],
+            '400 BAD REQUEST',
+            b'2021-01-01 < 2021-01-10',
+        ),
     ])
-    def test_after_params(self, dates, expected):
+    def test_after_params(self, dates, expected_status, expected):
         with _app2.test_client() as client:
-            data = client.post(
+            response = client.post(
                 '/after_param',
                 data=json.dumps({'dates': dates}),
                 content_type='application/json',
-            ).json
-            self.assertEqual(data, expected)
+            )
+
+            self.assertEqual(response.status, expected_status)
+            self.assertEqual(response.data, expected)
 
 
 @_app2.route('/issue/83', methods=['POST'])

@@ -10,7 +10,7 @@ See `readme`_
 
 setup(
     name='flask_request_validator',
-    version='4.3.1',
+    version='4.4.0',
     description='Flask request data validation',
     long_description=DESCRIPTION,
     url='https://github.com/d-ganchar/flask_request_validator',
