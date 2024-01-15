@@ -232,3 +232,25 @@ class InvalidRequestError(RequestError):
         self.get = get
         self.form = form
         self.files = files
+
+    def to_dict(self) -> dict:
+        result = dict()
+        for error_type in ('json', 'files'):
+            errors = getattr(self, error_type)
+            if not (isinstance(errors, list) and len(errors) > 0):
+                continue
+
+            result.setdefault(error_type, [])
+            for error in errors:
+                result[error_type].append(error)
+
+        for error_type in ('get', 'form', 'path', 'json'):
+            errors = getattr(self, error_type)
+            if not (isinstance(errors, dict) and len(errors) > 0):
+                continue
+
+            result.setdefault(error_type, dict())
+            for key, error in errors.items():
+                result[error_type][key] = error
+
+        return result

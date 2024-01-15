@@ -5,6 +5,7 @@ from .exceptions import *
 def demo_error_formatter(error: Union[InvalidRequestError, InvalidHeadersError, AfterParamError]) -> list:
     """
     Just demo. !!! not supported !!!
+    @deprecated v5.0
     """
     if isinstance(error, (InvalidHeadersError, AfterParamError)):
         return [str(error)]
