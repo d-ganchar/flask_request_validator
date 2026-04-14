@@ -1,7 +1,6 @@
 ## Flask request validator
 
-Key features
-------------
+#### Key features
 - Easy and beautiful
 - Type conversion
 - Extensible
