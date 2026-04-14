@@ -1,4 +1,4 @@
-from typing import List, Union, Dict, Any, Iterable
+from typing import Any, Dict, Iterable, List, Union
 
 
 class RequestError(Exception):
@@ -128,7 +128,7 @@ class ValueEmptyError(RuleError):
 
 class ValueDtIsoFormatError(RuleError):
     def __str__(self) -> str:
-        return f'expected a datetime in ISO format'
+        return 'expected a datetime in ISO format'
 
 
 class ValueEmailError(RuleError):

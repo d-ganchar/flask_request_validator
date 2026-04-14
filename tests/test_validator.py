@@ -1,4 +1,5 @@
 import json
+from typing import Any
 from unittest import TestCase
 from urllib.parse import urlencode
 
@@ -6,8 +7,43 @@ import flask
 from flask_restful import Api
 from parameterized import parameterized
 
-from flask_request_validator.rules import *
-from flask_request_validator.validator import *
+from flask_request_validator import (
+    FORM,
+    GET,
+    HEADER,
+    JSON,
+    PATH,
+    AbstractAfterParam,
+    BoolRule,
+    CompositeRule,
+    Datetime,
+    Enum,
+    FloatRule,
+    IntRule,
+    IsDatetimeIsoFormat,
+    IsEmail,
+    JsonParam,
+    MaxLength,
+    Min,
+    MinLength,
+    Param,
+    Pattern,
+    ValidRequest,
+    validate_params,
+)
+from flask_request_validator.exceptions import (
+    AfterParamError,
+    InvalidHeadersError,
+    InvalidRequestError,
+    RequestError,
+    RequiredValueError,
+    RulesError,
+    TypeConversionError,
+    ValueEnumError,
+    ValueMinLengthError,
+    ValuePatternError,
+    WrongUsageError,
+)
 
 _app = flask.Flask(__name__)
 _test_api = Api(_app, '/v1')
@@ -165,7 +201,7 @@ class TestRoutes(TestCase):
                     headers=_VALID_HEADERS,
                 ).json
             except InvalidRequestError as e:
-                for param_type, errors_by_key in exp.items():  # type: str, dict
+                for param_type, _ in exp.items():  # type: str, dict
                     for k, exception in getattr(e, param_type.lower()).items():
                         if isinstance(exception, RulesError):
                             for rule_ix in range(len(exception.errors)):
@@ -532,7 +568,7 @@ class ExampleAfterParam(AbstractAfterParam):
         for item in value.get_json()['dates']:
             date = item.date()
             if prev_date and date < prev_date:
-                errors.append('{d1} < {d2}'.format(d1=date, d2=prev_date))
+                errors.append(f'{date} < {prev_date}')
                 continue
             prev_date = date
         if errors:

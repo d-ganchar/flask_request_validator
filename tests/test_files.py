@@ -5,8 +5,8 @@ import flask
 from flask_restful import Api
 from parameterized import parameterized
 
-from flask_request_validator import *
-
+from flask_request_validator import File, FileChain, ValidRequest, validate_params
+from flask_request_validator.exceptions import RequestError, WrongUsageError
 
 _app = flask.Flask(__name__)
 _test_api = Api(_app, '/v1')

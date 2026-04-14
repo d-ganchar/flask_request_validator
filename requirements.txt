@@ -1,4 +1,0 @@
-Flask-RESTful
-parameterized==0.8.1
-pytest_cov==4.0.0
-coveralls==1.2.0

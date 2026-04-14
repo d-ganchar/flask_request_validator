@@ -1,15 +1,15 @@
-from typing import Union, Dict, List, Tuple, Any
+from typing import Any, Dict, List, Tuple, Union
 
 from .exceptions import (
-    JsonError,
-    RequiredJsonKeyError,
-    JsonListItemTypeError,
-    RulesError,
-    JsonListExpectedError,
     JsonDictExpectedError,
+    JsonError,
+    JsonListExpectedError,
+    JsonListItemTypeError,
     MissingJsonKeyError,
+    RequiredJsonKeyError,
+    RulesError,
 )
-from .rules import CompositeRule, AbstractRule
+from .rules import AbstractRule, CompositeRule
 
 
 class JsonParam:
@@ -58,7 +58,7 @@ class JsonParam:
             if key not in value:
                 raise MissingJsonKeyError(key)
         except MissingJsonKeyError as error:
-            raise RulesError(error)
+            raise RulesError(error) from error
 
     def _validate_list(
         self,

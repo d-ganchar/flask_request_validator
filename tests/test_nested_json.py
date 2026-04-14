@@ -1,25 +1,27 @@
 import unittest
 from copy import deepcopy
+from typing import Union
 
-from parameterized import parameterized
 import flask
+from parameterized import parameterized
 
 from flask_request_validator import (
-    JsonParam as P,
-    Enum,
-    CompositeRule,
-    Min,
-    Max,
-    IsEmail,
-    Number,
-    MinLength,
-    IntRule,
-    FloatRule,
     BoolRule,
-    validate_params,
+    CompositeRule,
+    Enum,
+    FloatRule,
+    IntRule,
+    IsEmail,
+    Max,
+    Min,
+    MinLength,
+    Number,
     ValidRequest,
+    validate_params,
 )
-from flask_request_validator.exceptions import *
+from flask_request_validator import (
+    JsonParam as P,
+)
 
 
 class TestJsonParam(unittest.TestCase):
@@ -243,7 +245,7 @@ class TestJsonParam(unittest.TestCase):
             dict(yes=True, no=False),
         ),
     ])
-    def test_type_checkers(self, param: P, value: dict, expected: dict or str):
+    def test_type_checkers(self, param: P, value: dict, expected: Union[dict, str]):
         new_val, errors = param.validate(value)
         if isinstance(expected, str):
             self.assertEqual(expected, str(errors))
