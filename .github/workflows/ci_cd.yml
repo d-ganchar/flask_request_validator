@@ -71,6 +71,9 @@ jobs:
             uv-version: "0.5.x"
           - python-version: "3.8"
             uv-version: "0.5.x"
+        exclude:
+          - python-version: "3.7"
+            flask-version: "flask>=3,<4"
 
     steps:
       - uses: actions/checkout@v4
