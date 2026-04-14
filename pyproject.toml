@@ -4,7 +4,7 @@ version = "999.9.9.dev1"
 description = "Flask Request Validator"
 authors = [{name = "Danila Ganchar", email = "danila.ganchar@gmail.com"}]
 maintainers = [{name = "Danila Ganchar", email = "danila.ganchar@gmail.com"}]
-license-files = ["LICENSE"]
+# license-files = ["LICENSE"] # TODO: uncomment after py 3.8 when setuptools 69.0+
 readme = "README.md"
 requires-python = ">=3.7, < 3.15"
 dependencies = [
