@@ -66,6 +66,11 @@ jobs:
       matrix:
         python-version: [ "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14" ]
         flask-version: ["flask>=2,<3", "flask>=3,<4"]
+        include:
+          - python-version: "3.7"
+            uv-version: "0.5.x"
+          - python-version: "3.8"
+            uv-version: "0.5.x"
 
     steps:
       - uses: actions/checkout@v4
@@ -80,6 +85,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python-version }}
+          version: ${{ matrix.uv-version || 'latest' }}
 
       - name: Install dependencies
         run: uv sync --dev
