@@ -1,5 +1,7 @@
-from .validator import JSON, FORM, PATH, GET
-from .exceptions import *
+from typing import Union
+
+from .exceptions import AfterParamError, InvalidHeadersError, InvalidRequestError, RulesError
+from .validator import FORM, GET, JSON, PATH
 
 
 def demo_error_formatter(error: Union[InvalidRequestError, InvalidHeadersError, AfterParamError]) -> list:
@@ -16,7 +18,7 @@ def demo_error_formatter(error: Union[InvalidRequestError, InvalidHeadersError, 
         if not errors:
             continue
 
-        item = {'message': 'invalid {err_type} parameters'.format(err_type=err_type)}
+        item = {'message': f'invalid {err_type} parameters'}
         if isinstance(errors, list):
             sub_errors = []
             for json_er in errors:  # type: JsonError

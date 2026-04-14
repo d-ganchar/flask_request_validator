@@ -1,17 +1,25 @@
 import types
 from copy import deepcopy
 from functools import wraps
-from typing import Tuple
+from typing import Any, Dict, List, Tuple, Union
 
-from flask import request, Request
+from flask import Request, request
 
 from .after_param import AbstractAfterParam
-from .exceptions import *
+from .exceptions import (
+    FileError,
+    InvalidHeadersError,
+    InvalidRequestError,
+    JsonError,
+    RequiredValueError,
+    RulesError,
+    TypeConversionError,
+    WrongUsageError,
+)
+from .files import File, FileChain
+from .nested_json import JsonParam
 from .rules import CompositeRule
 from .valid_request import ValidRequest
-from .nested_json import JsonParam
-from .files import File, FileChain
-
 
 GET = 'GET'
 PATH = 'PATH'
@@ -68,16 +76,16 @@ class Param:
         """
         if param_type not in PARAM_TYPES:
             raise WrongUsageError(
-                'Param.name = "%s". '
-                'invalid Param.value_type "%s". allowed: %s' % (name, param_type, PARAM_TYPES))
+                f'Param.name = "{name}". '
+                f'invalid Param.value_type "{param_type}". allowed: {PARAM_TYPES}')
         if value_type and value_type not in _ALLOWED_TYPES:
             raise WrongUsageError(
-                'Param.name = "%s". '
-                'invalid Param.value_type "%s". allowed: %s' % (name, value_type, _ALLOWED_TYPES))
+                f'Param.name = "{name}". '
+                f'invalid Param.value_type "{value_type}". allowed: {_ALLOWED_TYPES}')
         if required and default:
             raise WrongUsageError(
-                'Param.name = "%s". '
-                'defaults are only allowed when required=False' % (name, ))
+                f'Param.name = "{name}". '
+                'defaults are only allowed when required=False')
 
         self.value_type = value_type
         self.default = default
@@ -94,7 +102,7 @@ class Param:
         :raises:
             TypeConversionError:
         """
-        if self.value_type == bool:
+        if self.value_type is bool:
             if isinstance(value, str):
                 low_val = value.lower()
 
@@ -102,9 +110,9 @@ class Param:
                     value = True
                 elif low_val in ('false', '0'):
                     value = False
-        elif self.value_type == list:
+        elif self.value_type is list:
             value = [item.strip() for item in value.split(',')]
-        elif self.value_type == dict:
+        elif self.value_type is dict:
             value = {
                 item.split(':')[0].strip(): item.partition(':')[-1].strip()
                 for item in value.split(',')
@@ -113,10 +121,10 @@ class Param:
         try:
             if self.value_type:
                 value = self.value_type(value)
-        except (ValueError, TypeError):
-            raise TypeConversionError()
+        except (ValueError, TypeError) as error:
+            raise TypeConversionError() from error
 
-        if self.value_type != type(value):
+        if self.value_type is not type(value):
             raise TypeConversionError()
         return value
 

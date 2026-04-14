@@ -1,11 +1,43 @@
-import unittest
 import random
-from datetime import timezone, timedelta
+import unittest
+from datetime import datetime, timedelta, timezone
 
 from parameterized import parameterized
 
-from flask_request_validator.rules import *
-from flask_request_validator.exceptions import *
+from flask_request_validator.exceptions import (
+    NumberError,
+    RulesError,
+    TypeConversionError,
+    ValueDatetimeError,
+    ValueDtIsoFormatError,
+    ValueEmailError,
+    ValueEmptyError,
+    ValueEnumError,
+    ValuePatternError,
+    WrongUsageError,
+)
+from flask_request_validator.rules import (
+    AbstractRule,
+    BoolRule,
+    CompositeRule,
+    Datetime,
+    Enum,
+    FloatRule,
+    IntRule,
+    IsDatetimeIsoFormat,
+    IsEmail,
+    Max,
+    MaxLength,
+    Min,
+    MinLength,
+    NotEmpty,
+    Number,
+    Pattern,
+    ValueMaxError,
+    ValueMaxLengthError,
+    ValueMinError,
+    ValueMinLengthError,
+)
 
 
 class TestRules(unittest.TestCase):
@@ -29,7 +61,7 @@ class TestRules(unittest.TestCase):
     ])
     def test_composite_min_max_rule(self, value, min_l, max_l, expected):
         rules = CompositeRule(*[min_l, max_l])
-        if not type(expected) is type:
+        if type(expected) is not type:
             self.assertEqual(rules.validate(value), expected)
             return
 

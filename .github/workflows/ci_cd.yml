@@ -1,0 +1,137 @@
+name: Push commit
+on:
+  release:
+    types: [ created ]
+  push:
+    branches:
+      - '*'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    outputs:
+      artifact_url: ${{ steps.artifact.outputs.artifact_url }}
+
+    env:
+      UV_PYTHON: 3.12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: 3.12
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Check formatting with Ruff
+        run: ruff check
+
+      - name: Build
+        run: |
+          if [[ '${{ github.event_name }}' = 'release' ]]; then
+             sed -i -e "s/999.9.9.dev1/$GITHUB_REF_NAME/g" pyproject.toml
+          else
+            sed -i -e "s/999.9.9.dev1/999.9.$GITHUB_RUN_NUMBER/g" pyproject.toml
+          fi
+          uv build
+          mkdir flask_request_validator_build
+          mv ./dist ./flask_request_validator_build
+
+      - name: Upload flask_request_validator package
+        id: upload_dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: flask_request_validator_build
+
+      - name: Set artifact URL
+        id: artifact
+        run: |
+          ARTIFACT_ID=${{ steps.upload_dist.outputs.artifact-id }}
+          ARTIFACT_URL="https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID/zip"
+          echo "artifact_url=$ARTIFACT_URL" >> $GITHUB_OUTPUT
+
+  tests:
+    runs-on: ubuntu-22.04
+    permissions: write-all
+    needs: [ build ]
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14" ]
+        flask-version: ["flask>=2,<3", "flask>=3,<4"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            pyproject.toml
+            uv.lock
+            tests
+            LICENSE
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Install Flask ${{ matrix.flask-version }}
+        run: uv pip install "${{ matrix.flask-version }}"
+
+      - name: Download flask_request_validator dist
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+
+      - name: Install flask_request_validator from dist
+        run: uv pip install dist/$(ls ./dist/ | grep ".tar.gz")
+
+      - name: Run tests with coverage. py${{ matrix.python-version }}
+        run: |
+          coverage run -m pytest
+          coverage xml
+
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          format: cobertura
+          file: coverage.xml
+          parallel: true
+          flag-name: py-${{ matrix.python-version }}-${{ matrix.flask-version }}
+
+  coveralls_finish:
+    needs: [ tests ]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Finish Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true
+
+  publish_to_PyPi:
+    runs-on: ubuntu-22.04
+    needs: [ tests ]
+    if: github.event_name == 'release' && github.event.action == 'created'
+    environment:
+      name: pypi
+      url: https://pypi.org/p/flask_request_validator
+    permissions:
+      id-token: write
+    steps:
+      - name: Download flask_request_validator package
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}

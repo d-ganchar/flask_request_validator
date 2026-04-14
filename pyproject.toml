@@ -1,0 +1,86 @@
+[project]
+name = "flask_request_validator"
+version = "999.9.9.dev1"
+description = "Flask Request Validator"
+authors = [{name = "Danila Ganchar", email = "danila.ganchar@gmail.com"}]
+maintainers = [{name = "Danila Ganchar", email = "danila.ganchar@gmail.com"}]
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.7, < 3.15"
+dependencies = [
+    'flask>=2,<4'
+]
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Flask",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+
+[project.urls]
+Homepage = "https://github.com/d-ganchar/flask_request_validator"
+Changelog = "https://github.com/d-ganchar/flask_request_validator/releases"
+Issues = "https://github.com/d-ganchar/flask_request_validator/issues"
+CI = "https://github.com/d-ganchar/flask_request_validator/actions"
+Documentation = "https://github.com/d-ganchar/flask_request_validator/wiki"
+Source = "https://github.com/d-ganchar/flask_request_validator"
+
+
+[build-system]
+requires = ["setuptools>=77.0.0"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.setuptools.packages]
+find = { include = ["flask_request_validator", "flask_request_validator.*"] }
+
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "pytest",
+    "parameterized==0.8.1",
+    "pytest-cov==4.0.0",
+    "Flask-RESTful",
+    "coveralls==1.2.0"
+]
+
+
+[lint.select]
+
+[lint.isort]
+known-third-party = ["pytest"]
+lines-after-imports = 2
+lines-between-types = 1
+
+
+[tool.ruff]
+line-length = 120
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    "**/.git",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "N", "B", "W"]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+    "--color=yes",
+]
+
+addopts = [
+]
+

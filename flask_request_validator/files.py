@@ -1,10 +1,10 @@
 import mimetypes
 import re
-from typing import Iterable, Dict
+from typing import Dict, Iterable
 
 from werkzeug.datastructures import FileStorage
 
-from .exceptions import FilesLimitError, FileMimeTypeError, FileSizeError, FileNameError, FileMissingError
+from .exceptions import FileMimeTypeError, FileMissingError, FileNameError, FileSizeError, FilesLimitError
 
 
 class File:

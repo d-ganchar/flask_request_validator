@@ -1,12 +1,27 @@
 import numbers
 import re
-import sys
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from datetime import datetime
+from typing import Any, Iterable, Union
 
-from .dt_utils import dt_from_iso
-from .exceptions import *
+from .exceptions import (
+    NumberError,
+    RuleError,
+    RulesError,
+    TypeConversionError,
+    ValueDatetimeError,
+    ValueDtIsoFormatError,
+    ValueEmailError,
+    ValueEmptyError,
+    ValueEnumError,
+    ValueMaxError,
+    ValueMaxLengthError,
+    ValueMinError,
+    ValueMinLengthError,
+    ValuePatternError,
+    WrongUsageError,
+)
 
 REGEX_EMAIL = r"[^@\s]+@[^@\s]+\.[a-zA-Z0-9]+$"
 
@@ -37,8 +52,7 @@ class CompositeRule(AbstractRule):
         self._rules = rules_by_priority
 
     def __iter__(self):
-        for rule in self._rules:
-            yield rule
+        yield from self._rules
 
     def validate(self, value: Any) -> Any:
         """
@@ -154,13 +168,9 @@ class Min(AbstractRule):
 class IsDatetimeIsoFormat(AbstractRule):
     def validate(self, value: str) -> datetime:
         try:
-            if sys.version_info >= (3, 7):
-                value = datetime.fromisoformat(value[:-1] if value.endswith('Z') else value)
-            else:
-                value = dt_from_iso(value[:-1] if value.endswith('Z') else value)
-        except (TypeError, ValueError, AttributeError):
-            raise ValueDtIsoFormatError()
-        return value
+            return datetime.fromisoformat(value[:-1] if value.endswith('Z') else value)
+        except (TypeError, ValueError, AttributeError) as e:
+            raise ValueDtIsoFormatError() from e
 
 
 class IsEmail(AbstractRule):
@@ -177,8 +187,8 @@ class Datetime(AbstractRule):
     def validate(self, value: str) -> datetime:
         try:
             return datetime.strptime(value, self._dt_format)
-        except ValueError:
-            raise ValueDatetimeError(self._dt_format)
+        except ValueError as e:
+            raise ValueDatetimeError(self._dt_format) from e
 
 
 class Number(AbstractRule):
