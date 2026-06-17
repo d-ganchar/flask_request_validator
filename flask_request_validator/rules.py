@@ -1,9 +1,10 @@
 import numbers
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Iterable, Union
+from typing import Any
 
 from .exceptions import (
     NumberError,
@@ -98,7 +99,7 @@ class MaxLength(AbstractRule):
     def __init__(self, length: int) -> None:
         self._length = length
 
-    def validate(self, value: Union[Iterable, str]) -> Any:
+    def validate(self, value: Iterable | str) -> Any:
         if len(value) > self._length:
             raise ValueMaxLengthError(self._length)
         return value
@@ -108,7 +109,7 @@ class MinLength(AbstractRule):
     def __init__(self, length: int) -> None:
         self._length = length
 
-    def validate(self, value: Union[Iterable, str]) -> Any:
+    def validate(self, value: Iterable | str) -> Any:
         if len(value) < self._length:
             raise ValueMinLengthError(self._length)
         return value
@@ -123,7 +124,7 @@ class NotEmpty(AbstractRule):
 
 
 class Max(AbstractRule):
-    def __init__(self, value: Union[int, float], include_boundary: bool = True) -> None:
+    def __init__(self, value: int | float, include_boundary: bool = True) -> None:
         """
             >>> Max(7, True).validate(7)
             True
@@ -135,7 +136,7 @@ class Max(AbstractRule):
         self._value = value
         self._include_boundary = include_boundary
 
-    def validate(self, value: Union[int, float]) -> Union[int, float]:
+    def validate(self, value: int | float) -> int | float:
         if value > self._value and self._include_boundary:
             raise ValueMaxError(self._value, self._include_boundary)
         elif value >= self._value and not self._include_boundary:
@@ -145,7 +146,7 @@ class Max(AbstractRule):
 
 
 class Min(AbstractRule):
-    def __init__(self, value: Union[int, float], include_boundary: bool = True) -> None:
+    def __init__(self, value: int | float, include_boundary: bool = True) -> None:
         """
             >>> Min(7, True).validate(7)
             True
@@ -157,7 +158,7 @@ class Min(AbstractRule):
         self._value = value
         self._include_boundary = include_boundary
 
-    def validate(self, value: Union[int, float]) -> Union[int, float]:
+    def validate(self, value: int | float) -> int | float:
         if value < self._value and self._include_boundary:
             raise ValueMinError(self._value, self._include_boundary)
         elif value <= self._value and not self._include_boundary:

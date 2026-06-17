@@ -1,6 +1,6 @@
 import mimetypes
 import re
-from typing import Dict, Iterable
+from collections.abc import Iterable
 
 from werkzeug.datastructures import FileStorage
 
@@ -13,7 +13,7 @@ class File:
         self._max_size = max_size
         self._name = name
 
-    def validate(self, files: Dict[str, FileStorage]):
+    def validate(self, files: dict[str, FileStorage]):
         file = files.get(self._name)
 
         if not file:
@@ -33,7 +33,7 @@ class FileChain:
         self._mime_types = mime_types
         self._max_size = max_size
 
-    def validate(self, files: Dict[str, FileStorage]) -> None:
+    def validate(self, files: dict[str, FileStorage]) -> None:
         if len(files) > self._max_files:
             raise FilesLimitError(self._max_files)
 

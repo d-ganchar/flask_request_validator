@@ -1,10 +1,9 @@
-from typing import Union
 
 from .exceptions import AfterParamError, InvalidHeadersError, InvalidRequestError, RulesError
 from .validator import FORM, GET, JSON, PATH
 
 
-def demo_error_formatter(error: Union[InvalidRequestError, InvalidHeadersError, AfterParamError]) -> list:
+def demo_error_formatter(error: InvalidRequestError | InvalidHeadersError | AfterParamError) -> list:
     """
     Just demo. !!! not supported !!!
     @deprecated v5.0
