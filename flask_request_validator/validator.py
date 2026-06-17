@@ -1,7 +1,7 @@
 import types
 from copy import deepcopy
 from functools import wraps
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any
 
 from flask import Request, request
 
@@ -42,19 +42,19 @@ class _ValidRequest(ValidRequest):
     def set_json(self, value: dict):
         self._valid_data[JSON] = value
 
-    def get_form(self) -> Dict[str, Any]:
+    def get_form(self) -> dict[str, Any]:
         return self._valid_data.get(FORM, dict())
 
-    def get_headers(self) -> Dict[str, Any]:
+    def get_headers(self) -> dict[str, Any]:
         return self._valid_data.get(HEADER, dict())
 
-    def get_json(self) -> Dict[str, Any]:
+    def get_json(self) -> dict[str, Any]:
         return self._valid_data.get(JSON, dict())
 
-    def get_params(self) -> Dict[str, Any]:
+    def get_params(self) -> dict[str, Any]:
         return self._valid_data.get(GET, dict())
 
-    def get_path_params(self) -> Dict[str, Any]:
+    def get_path_params(self) -> dict[str, Any]:
         return self._valid_data.get(PATH, dict())
 
     def get_flask_request(self) -> Request:
@@ -152,7 +152,7 @@ class Param:
         return value
 
 
-def validate_params(*params: Union[JsonParam, Param, AbstractAfterParam, File, FileChain]):
+def validate_params(*params: JsonParam | Param | AbstractAfterParam | File | FileChain):
     """
     :raises:
         InvalidHeadersError: When found invalid headers. Raises before other params validation
@@ -196,9 +196,9 @@ def validate_params(*params: Union[JsonParam, Param, AbstractAfterParam, File, F
 
 
 def __get_request_errors(
-    params: Tuple[Union[Param, JsonParam], ...],
+    params: tuple[Param | JsonParam, ...],
     valid: _ValidRequest
-) -> Tuple[_ValidRequest, Dict[str, Union[Dict[str, RulesError], List[JsonError], List[FileError]]]]:
+) -> tuple[_ValidRequest, dict[str, dict[str, RulesError] | list[JsonError] | list[FileError]]]:
     errors = {GET: dict(), FORM: dict(), JSON: dict(), HEADER: dict(), PATH: dict(), FILES: []}
     for param in params:
         if isinstance(param, JsonParam):

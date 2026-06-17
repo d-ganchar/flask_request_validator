@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Union
 
 from .exceptions import (
     JsonDictExpectedError,
@@ -18,10 +18,7 @@ class JsonParam:
     """
     def __init__(
         self,
-        rules_map: Union[
-            Dict[str, Union[Dict, List, CompositeRule, 'JsonParam']],
-            Union[CompositeRule, List[AbstractRule]],
-        ],
+        rules_map: dict[str, Union[dict, list, CompositeRule, 'JsonParam']] | CompositeRule | list[AbstractRule],
         required: bool = True,
         as_list: bool = False,
     ) -> None:
@@ -49,7 +46,7 @@ class JsonParam:
         if isinstance(nested.rules_map, dict) and not isinstance(value, dict):
             raise JsonListItemTypeError()
 
-    def _is_missing_json_key(self, key: str, value: Dict, nested: 'JsonParam'):
+    def _is_missing_json_key(self, key: str, value: dict, nested: 'JsonParam'):
         rules = nested.rules_map.get(key)
         if isinstance(rules, JsonParam) and not rules.required:
             return
@@ -62,11 +59,11 @@ class JsonParam:
 
     def _validate_list(
         self,
-        value: Union[Dict, List],
+        value: dict | list,
         nested: 'JsonParam',
         depth: list,
-        errors: List[JsonError],
-    ) -> Tuple[Union[Dict, List], List]:
+        errors: list[JsonError],
+    ) -> tuple[dict | list, list]:
         n_err = {}
         for ix, node in enumerate(value):  # type: int, dict or list
             try:
@@ -109,11 +106,11 @@ class JsonParam:
 
     def _validate_dict(
         self,
-        value: Union[Dict, List],
+        value: dict | list,
         nested: 'JsonParam',
         depth: list,
-        errors: List[JsonError],
-    ) -> Tuple[Any, List[JsonError], Dict[str, RulesError]]:
+        errors: list[JsonError],
+    ) -> tuple[Any, list[JsonError], dict[str, RulesError]]:
         err = dict()
 
         for key, rules in nested.rules_map.items():
@@ -153,11 +150,11 @@ class JsonParam:
 
     def validate(
         self,
-        value: Union[Dict, List],
+        value: dict | list,
         nested: 'JsonParam' = None,
         depth: list = None,
-        errors: List[JsonError] = None,
-    ) -> Tuple[Union[Dict, List], List]:
+        errors: list[JsonError] = None,
+    ) -> tuple[dict | list, list]:
         depth = depth or ['root']
         errors = errors or []
         node_errors = dict()

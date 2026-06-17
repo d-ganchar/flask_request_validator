@@ -1,6 +1,5 @@
 import unittest
 from copy import deepcopy
-from typing import Union
 
 import flask
 from parameterized import parameterized
@@ -245,7 +244,7 @@ class TestJsonParam(unittest.TestCase):
             dict(yes=True, no=False),
         ),
     ])
-    def test_type_checkers(self, param: P, value: dict, expected: Union[dict, str]):
+    def test_type_checkers(self, param: P, value: dict, expected: dict | str):
         new_val, errors = param.validate(value)
         if isinstance(expected, str):
             self.assertEqual(expected, str(errors))

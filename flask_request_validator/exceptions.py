@@ -1,4 +1,5 @@
-from typing import Any, Dict, Iterable, List, Union
+from collections.abc import Iterable
+from typing import Any
 
 
 class RequestError(Exception):
@@ -16,14 +17,14 @@ class WrongUsageError(RequestError):
 
 
 class JsonError(RequestError):
-    def __init__(self, depth: List[str], errors: Dict[int, RequestError], as_list: bool):
+    def __init__(self, depth: list[str], errors: dict[int, RequestError], as_list: bool):
         self.depth = depth
         self.errors = errors
         self.as_list = as_list
 
 
 class JsonListExpectedError(JsonError):
-    def __init__(self, depth: List[str]):
+    def __init__(self, depth: list[str]):
         self.depth = depth
 
     def __str__(self) -> str:
@@ -104,7 +105,7 @@ class ValueMinLengthError(ValueMaxLengthError):
 
 
 class ValueMaxError(RuleError):
-    def __init__(self, value: Union[int, float], include_boundary: bool):
+    def __init__(self, value: int | float, include_boundary: bool):
         self.value = value
         self.include_boundary = include_boundary
 
@@ -153,7 +154,7 @@ class ValueDatetimeError(RuleError):
 
 
 class ListRuleError(RuleError):
-    def __init__(self, errors: List[Any]) -> None:
+    def __init__(self, errors: list[Any]) -> None:
         self.errors = errors
 
 
@@ -174,7 +175,7 @@ class RulesError(RequestError):
 
 
 class InvalidHeadersError(RequestError):
-    def __init__(self, errors: Dict[str, RulesError]):
+    def __init__(self, errors: dict[str, RulesError]):
         self.errors = errors
 
     def __str__(self) -> str:
@@ -221,11 +222,11 @@ class FileMissingError(FileError):
 class InvalidRequestError(RequestError):
     def __init__(
         self,
-        get: Dict[str, RulesError],
-        form: Dict[str, RulesError],
-        path: Dict[str, RulesError],
-        json: Union[List[JsonError], Dict[str, RulesError]],
-        files: List[FileError],
+        get: dict[str, RulesError],
+        form: dict[str, RulesError],
+        path: dict[str, RulesError],
+        json: list[JsonError] | dict[str, RulesError],
+        files: list[FileError],
     ):
         self.json = json  # list when nested json validation
         self.path = path
