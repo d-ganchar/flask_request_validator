@@ -51,6 +51,19 @@ def issue_85_chain(valid: ValidRequest):
     return str(valid.get_flask_request().files.keys())
 
 
+@_app2.route('/issue/85-content', methods=['POST'])
+@validate_params(
+    File(
+        mime_types=['application/pdf'],
+        max_size=22,
+        name='document',
+    ),
+)
+def issue_85_content(valid: ValidRequest):
+    document = valid.get_flask_request().files['document']
+    return document.read()
+
+
 class TestFiles(TestCase):
     def test_wrong_usage(self):
         with self.assertRaises(WrongUsageError):
@@ -103,6 +116,17 @@ class TestFiles(TestCase):
             )
 
             self.assertEqual(response.data, expected)
+
+    def test_file_content_remains_available_after_validation(self):
+        with _app2.test_client() as client:
+            response = client.post(
+                '/issue/85-content',
+                data=dict(document=(io.BytesIO(b'good pdf'), 'document.pdf')),
+                follow_redirects=True,
+                content_type='multipart/form-data',
+            )
+
+            self.assertEqual(response.data, b'good pdf')
 
     @parameterized.expand([
         (

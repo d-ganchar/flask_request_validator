@@ -21,7 +21,9 @@ class File:
         if file.mimetype not in self._mime_types:
             raise FileMimeTypeError(file.name, file.mimetype, self._mime_types)
 
+        stream_position = file.stream.tell()
         file_length = len(file.read())
+        file.stream.seek(stream_position)
         if file_length > self._max_size:
             raise FileSizeError(file.name, file_length, self._max_size)
 
